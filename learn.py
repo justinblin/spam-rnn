@@ -18,7 +18,7 @@ torch.set_default_device(device)
 print(device)
 
 # SETUP DATASET
-all_data = MyDataset('data/spam.csv')
+all_data = MyDataset([',', ' '], ['data/kaggle spam.csv', 'data/UC Irvine collection/SMSSpamCollection'])
 train_set, test_set, extra_set = torch.utils.data.random_split(all_data, [.8, .2, .0], generator = torch.Generator(device = device).manual_seed(123))
 
 # CREATE/TRAIN NN

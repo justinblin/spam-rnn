@@ -18,6 +18,6 @@ labels_unique = ['ham', 'spam']
 rnn = torch.load('./my_model', weights_only = False)
 
 # use the model
-example_data = 'Hi this is a very cool message to you'
+example_data = "Hey, you won a free Nitro subscription! Click here to claim your prize."
 guess, guess_index = use(rnn, example_data, labels_unique)
 print('My RNN guessed "' + example_data + '" is ' + guess)
