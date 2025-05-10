@@ -19,9 +19,7 @@ class MyDataset(Dataset):
         for line_index, line in enumerate(lines): # go thru each line and add stuff to lists
             temp_list = line.split(',')
             label = temp_list[0]
-            data = temp_list[1]
-
-            # print(label)
+            data = ''.join(temp_list[1:])
 
             self.data_list.append(preprocess.unicode_to_ascii(data))
             self.data_list_tensors.append(preprocess.string_to_tensor(self.data_list[line_index]))

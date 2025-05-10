@@ -5,7 +5,7 @@ import unicodedata
 import io
 
 # process strings from unicode into ascii
-allowed_char = string.ascii_letters + ' .,;\'_'
+allowed_char = string.ascii_letters + string.digits + ' .,;\'_'
 def unicode_to_ascii(unicode_string:str) -> str:
     return ''.join(curr_char for curr_char in unicodedata.normalize('NFD', unicode_string) 
                    if unicodedata.category != 'Mn' and curr_char in allowed_char)
