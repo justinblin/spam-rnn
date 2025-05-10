@@ -1,3 +1,8 @@
+# To Do
+Retrain RNN to make better, do something about the unbalaced dataset, maybe increase complexity of the model, add to website/resume
+
+<br>
+
 # Project Outline
 This project contains a recursive neural network trained to differentiate between spam and non-spam text,
 as well as a discord bot that uses the RNN to automatically detect spam messages, warn server moderators,
