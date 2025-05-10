@@ -42,7 +42,7 @@ def train(rnn:MyRNN, training_data:MyDataset, num_epoch:int = 10, batch_size:int
         batches = np.array_split(batches, len(batches) // batch_size) # integer division AKA split list into batches of indices
 
         # go thru each batch
-        for batch in batches:
+        for batch_index, batch in enumerate(batches):
             batch_loss = 0 # total loss for this batch
             # go thru each tensor in this batch
             for curr_elem in batch:
@@ -60,16 +60,19 @@ def train(rnn:MyRNN, training_data:MyDataset, num_epoch:int = 10, batch_size:int
 
             current_loss += batch_loss.item() / len(batch) # add average loss for this batch into current_loss
 
+            # show progress (10 per epoch)
+            if batch_index % (len(batches)//10) == 0:
+                print(f'{(int)(batch_index/len(batches)*100)}% complete')
+
         # log the current loss
         all_losses.append(current_loss / len(batches))
-        if epoch_index % report_every == 0:
-            print(f'Epoch {epoch_index}: average batch loss = {all_losses[-1]}')
+        print(f'EPOCH {epoch_index}: average batch loss = {all_losses[-1]}')
 
         current_loss = 0 # reset loss so it doesn't build up in the tracking
 
     return all_losses
 
-all_losses = train(rnn, train_set, num_epoch = 15, report_every = 1)
+all_losses = train(rnn, train_set, num_epoch = 15) # training took several hours :(
 
 torch.save(rnn, "./my_model")
 

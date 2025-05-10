@@ -3,11 +3,11 @@ import preprocess
 import postprocess
 from rnn import MyRNN
 
-def use(rnn:MyRNN, name:str, labels_unique:list[str]) -> tuple[str, int]:
+def use(rnn:MyRNN, data:str, labels_unique:list[str]) -> tuple[str, int]:
     rnn.eval()
     with torch.no_grad():
-        name_tensors = preprocess.string_to_tensor(name)
-        output_tensor = rnn(name_tensors)
+        data_tensors = preprocess.string_to_tensor(data)
+        output_tensor = rnn(data_tensors)
         guess, guess_index = postprocess.label_from_output(output_tensor, labels_unique)
         return guess, guess_index
 
