@@ -19,13 +19,13 @@ print(device)
 
 # SETUP DATASET
 all_data = MyDataset([',', '\t'], ['data/kaggle spam.csv', 'data/UC Irvine collection/SMSSpamCollection'])
-train_set, test_set, extra_set = torch.utils.data.random_split(all_data, [.1, .2, .7], generator = torch.Generator(device = device).manual_seed(123))
+train_set, test_set, extra_set = torch.utils.data.random_split(all_data, [.8, .2, .0], generator = torch.Generator(device = device).manual_seed(123))
 
 # CREATE/TRAIN NN
 rnn = MyRNN(len(preprocess.allowed_char), 256, len(all_data.labels_unique))
 
 # train neural network
-def train(rnn:MyRNN, training_data:MyDataset, num_epoch:int = 10, batch_size:int = 64, report_every:int = 1, learning_rate:float = 0.05, criterion = nn.NLLLoss()):
+def train(rnn:MyRNN, training_data:MyDataset, num_epoch:int = 10, batch_size:int = 64, report_every:int = 1, learning_rate:float = 0.025, criterion = nn.NLLLoss()):
     # track loss over time
     current_loss = 0
     all_losses = []
@@ -62,7 +62,7 @@ def train(rnn:MyRNN, training_data:MyDataset, num_epoch:int = 10, batch_size:int
 
             # show progress (10 per epoch)
             if batch_index % (len(batches)//10) == 0:
-                print(f'{(int)(batch_index/len(batches)*100)}% complete')
+                print(f'{(int)(batch_index/len(batches)*100)}% complete, loss for current batch: {batch_loss.item() / len(batch)}')
 
         # log the current loss
         all_losses.append(current_loss / len(batches))
@@ -72,7 +72,7 @@ def train(rnn:MyRNN, training_data:MyDataset, num_epoch:int = 10, batch_size:int
 
     return all_losses
 
-all_losses = train(rnn, train_set, num_epoch = 2) # training took several hours :(
+all_losses = train(rnn, train_set, num_epoch = 10) # training took several hours :(
 
 torch.save(rnn, "./my_model")
 
