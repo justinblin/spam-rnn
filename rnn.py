@@ -12,6 +12,7 @@ class MyRNN(nn.Module):
         self.hidden_to_hidden_1 = nn.Linear(hidden_size, hidden_size)
         self.hidden_to_output = nn.Linear(hidden_size, output_size) 
         self.softmax = nn.LogSoftmax(dim = 1)
+        self.relu = nn.ReLU()
 
         # self.hidden_layers = nn.Sequential(
         #     nn.Linear(hidden_size, hidden_size), # applies the linear equation (weights and biases)
@@ -23,10 +24,15 @@ class MyRNN(nn.Module):
     def forward(self, line_tensor:torch.Tensor) -> torch.Tensor:
         rnn_out, hidden = self.rnn(line_tensor) # input to hidden layer
 
-        output = self.hidden_to_hidden_0(hidden[0]) # hidden layer to hidden        
-        output = self.hidden_to_hidden_1(hidden[0]) # hidden layer to hidden
-        output = self.hidden_to_output(hidden[0]) # hidden layer to output
-        output = self.softmax(output) # apply soft max
+        output = self.hidden_to_hidden_0(hidden[0]) # hidden layer to hidden
+        output = self.relu(output)
+        # print(output)
+        output = self.hidden_to_hidden_1(output) # hidden layer to hidden
+        output = self.relu(output)
+        # print(output)
+        output = self.hidden_to_output(output) # hidden layer to output
+        output = self.relu(output)
+        # print(output)
 
         # output = self.hidden_layers(hidden[0])
 
