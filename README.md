@@ -1,5 +1,7 @@
 # To Do
-Retrain RNN to make better, do something about the unbalaced dataset, maybe increase complexity of the model, add to website/resume
+Retrain RNN to make better, do something about the unbalaced dataset, maybe increase complexity of the model
+Add project to website/resume
+Allow bot to pm mods or kick spammers
 
 <br>
 

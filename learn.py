@@ -19,7 +19,7 @@ print(device)
 
 # SETUP DATASET
 all_data = MyDataset([',', '\t'], ['data/kaggle spam.csv', 'data/UC Irvine collection/SMSSpamCollection'])
-train_set, test_set, extra_set = torch.utils.data.random_split(all_data, [.8, .2, .0], generator = torch.Generator(device = device).manual_seed(123))
+train_set, test_set, extra_set = torch.utils.data.random_split(all_data, [.1, .2, .7], generator = torch.Generator(device = device).manual_seed(123))
 
 # CREATE/TRAIN NN
 rnn = MyRNN(len(preprocess.allowed_char), 256, len(all_data.labels_unique))
@@ -72,7 +72,7 @@ def train(rnn:MyRNN, training_data:MyDataset, num_epoch:int = 10, batch_size:int
 
     return all_losses
 
-all_losses = train(rnn, train_set, num_epoch = 15) # training took several hours :(
+all_losses = train(rnn, train_set, num_epoch = 2) # training took several hours :(
 
 torch.save(rnn, "./my_model")
 
