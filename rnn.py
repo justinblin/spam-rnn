@@ -11,7 +11,7 @@ class MyRNN(nn.Module):
         self.hidden_to_hidden_0 = nn.Linear(hidden_size, hidden_size)
         self.hidden_to_hidden_1 = nn.Linear(hidden_size, hidden_size)
         self.hidden_to_output = nn.Linear(hidden_size, output_size) 
-        self.softmax = nn.LogSoftmax(dim = 1)
+        self.log_softmax = nn.LogSoftmax(dim = 1)
         self.relu = nn.ReLU()
 
         # self.hidden_layers = nn.Sequential(
@@ -27,11 +27,18 @@ class MyRNN(nn.Module):
         output = self.hidden_to_hidden_0(hidden[0]) # hidden layer to hidden
         output = self.relu(output)
         # print(output)
+
         output = self.hidden_to_hidden_1(output) # hidden layer to hidden
         output = self.relu(output)
         # print(output)
+
         output = self.hidden_to_output(output) # hidden layer to output
+        # print(output)
         output = self.relu(output)
+        # print(output)
+        # print(self.softmax(output))
+        output = self.log_softmax(output) # does softmax and then ln so NLLLoss doesn't need it's own log (AKA faster)
+            # softmax normalizes values 0-1 and sum to 1
         # print(output)
 
         # output = self.hidden_layers(hidden[0])

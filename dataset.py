@@ -6,12 +6,12 @@ import preprocess
 class MyDataset(Dataset):
     def __init__(self, seperator_chars:list[str], data_locations:list):
         self.data_locations:list = data_locations
-        self.labels_unique = [] # unique list of labels (use list to preserve order, then dict to remove duplicates)
+        self.labels_unique:list[str] = [] # unique list of labels (use list to preserve order, then dict to remove duplicates)
 
-        self.data_list = [] # list of messages
-        self.data_list_tensors = [] # list of messages in tensor lists
-        self.label_list = [] # list of labels (ham or spam)
-        self.label_list_tensors = [] # list of labels (ham or spam) in tensors
+        self.data_list:list[str] = [] # list of messages
+        self.data_list_tensors:list[torch.Tensor] = [] # list of messages in tensor lists
+        self.label_list:list[str] = [] # list of labels (ham or spam)
+        self.label_list_tensors:list[torch.Tensor] = [] # list of labels (ham or spam) in tensors
 
         # read the data from the csv file
         self.labels_unique = ['ham', 'spam']

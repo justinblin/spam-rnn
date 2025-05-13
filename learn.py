@@ -22,10 +22,10 @@ all_data = MyDataset([',', '\t'], ['data/kaggle spam.csv', 'data/UC Irvine colle
 train_set, test_set, extra_set = torch.utils.data.random_split(all_data, [.8, .2, .0], generator = torch.Generator(device = device).manual_seed(326))
 
 # CREATE/TRAIN NN
-rnn = MyRNN(len(preprocess.allowed_char), 256, len(all_data.labels_unique))
+rnn = MyRNN(len(preprocess.allowed_char), 512, len(all_data.labels_unique))
 
 # train neural network
-def train(rnn:MyRNN, training_data:MyDataset, num_epoch:int = 10, batch_size:int = 64, report_every:int = 1, learning_rate:float = 0.0125, criterion = nn.NLLLoss()):
+def train(rnn:MyRNN, training_data:MyDataset, num_epoch:int = 10, batch_size:int = 64, target_loss:float = 0.05, learning_rate:float = 0.05, criterion = nn.NLLLoss(), show = True):
     # track loss over time
     current_loss = 0
     all_losses = []
@@ -65,24 +65,30 @@ def train(rnn:MyRNN, training_data:MyDataset, num_epoch:int = 10, batch_size:int
                 print(f'{(int)(batch_index/len(batches)*100)}% complete, loss for current batch: {batch_loss.item() / len(batch)}')
 
         # log the current loss
-        all_losses.append(current_loss / len(batches))
+        current_loss /= len(batches)
+        all_losses.append(current_loss)
         print(f'EPOCH {epoch_index}: average batch loss = {all_losses[-1]}')
+
+        # cut early if you reach the goal
+        if current_loss < target_loss:
+            return all_losses
 
         current_loss = 0 # reset loss so it doesn't build up in the tracking
 
+    if show:
+        # show training results
+        plt.figure()
+        plt.plot(all_losses)
+        plt.show()
+
     return all_losses
 
-all_losses = train(rnn, train_set, num_epoch = 5) # training took several hours :(
+all_losses = train(rnn, train_set, num_epoch = 10) # training took several hours :(
 
 torch.save(rnn, "./my_model")
 
-# show training results
-plt.figure()
-plt.plot(all_losses)
-plt.show()
-
 # TEST NEURAL NETWORK
-def test(rnn:MyRNN, testing_data:MyDataset, classes):
+def test(rnn:MyRNN, testing_data:MyDataset, classes:list[str]):
     print(f'Start testing on {len(testing_data)} examples')
 
     confusion_matrix = torch.zeros(len(classes), len(classes))
