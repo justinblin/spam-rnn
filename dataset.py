@@ -34,6 +34,3 @@ class MyDataset(Dataset):
     
     def __getitem__(self, index:int) -> tuple[list[torch.Tensor], list[torch.Tensor], list[str], list[str]]:
         return self.label_list_tensors[index], self.data_list_tensors[index], self.label_list[index], self.data_list[index]
-            
-# all_data = MyDataset([',', '\t'], ['data/kaggle spam.csv', 'data/UC Irvine collection/SMSSpamCollection'])
-# print(len(all_data))

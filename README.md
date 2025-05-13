@@ -1,12 +1,12 @@
 # To Do
-Retrain RNN to make better, do something about the unbalaced dataset  
+- Retrain RNN to make better, do something about the unbalaced dataset  
     - Mess with the cost function to make missing spam more costly? (don't really wanna mess around/build own cost function)  
         - Maybe check Pytorch doc if there's a builtin weighted cost func  
     - Make each batch have a fixed number of spam (currently 85/15, try like 70/30)  
 
-Look at different criteria for testing and test more often (withing the training loop?)  
-Add project to website/resume  
-Allow bot to pm mods or kick spammers  
+- Look at different criteria for testing and test more often (withing the training loop?)  
+- Add project to website/resume  
+- Allow bot to pm mods or kick spammers  
 
 <br>
 

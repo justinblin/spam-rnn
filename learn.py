@@ -62,13 +62,14 @@ def train(rnn:MyRNN, training_data:MyDataset, num_epoch:int = 10, batch_size:int
             current_loss += batch_loss.item() / len(batch) # add average loss for this batch into current_loss
 
             # show progress (10 per epoch)
-            if batch_index % (len(batches)//10) == 0:
+            if batch_index % round(len(batches)/10) == 0:
+                # print(f'batch index: {batch_index} num batches: {len(batches)}, num batches tenth: {round(len(batches)/10)}')
                 print(f'{(int)(batch_index/len(batches)*100)}% complete, loss for current batch: {batch_loss.item() / len(batch)}')
 
         # log the current loss
         current_loss /= len(batches)
         all_losses.append(current_loss)
-        print(f'EPOCH {epoch_index}: average batch loss = {all_losses[-1]}')
+        print(f'\nFINISH EPOCH {epoch_index}: average batch loss = {all_losses[-1]}\n')
 
         # cut early if you reach the goal
         if current_loss < target_loss:
@@ -84,7 +85,7 @@ def train(rnn:MyRNN, training_data:MyDataset, num_epoch:int = 10, batch_size:int
 
     return all_losses
 
-all_losses = train(rnn, train_set, num_epoch = 10) # training took several hours :(
+all_losses = train(rnn, train_set, num_epoch = 10, criterion = nn.NLLLoss(weight = torch.tensor([.15, .85])))
 
 torch.save(rnn, "./my_model")
 
@@ -106,8 +107,8 @@ def test(rnn:MyRNN, testing_data:MyDataset, classes:list[str], show:bool = True)
             output = rnn(data_tensor)
             guess, guess_index = postprocess.label_from_output(output, classes) # the guess and index of the guess
 
-            if index % (len(testing_data)//10) == 0: # print 10 outputs
-                print("guess: "+str(guess)+", guess_idx: "+str(guess_index)+", label: "+str(label)+", label_idx: "+str(label_index))
+            if index % (round(len(testing_data)/10)) == 0: # print 10 outputs
+                print(f"testcase index: {index}, guess: {str(guess)}, guess_idx: {str(guess_index)}, label: {str(label)}, label_idx: {str(label_index)}")
 
             confusion_matrix[guess_index][label_index] += 1
             if guess_index == label_index:
