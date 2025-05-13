@@ -25,7 +25,8 @@ train_set, test_set, extra_set = torch.utils.data.random_split(all_data, [.8, .2
 rnn = MyRNN(len(preprocess.allowed_char), 512, len(all_data.labels_unique))
 
 # train neural network
-def train(rnn:MyRNN, training_data:MyDataset, num_epoch:int = 10, batch_size:int = 64, target_loss:float = 0.05, learning_rate:float = 0.05, criterion = nn.NLLLoss(), show = True):
+def train(rnn:MyRNN, training_data:MyDataset, num_epoch:int = 10, batch_size:int = 64, target_loss:float = 0.05, 
+          learning_rate:float = 0.05, criterion = nn.NLLLoss(), show:bool = True):
     # track loss over time
     current_loss = 0
     all_losses = []
@@ -75,8 +76,8 @@ def train(rnn:MyRNN, training_data:MyDataset, num_epoch:int = 10, batch_size:int
 
         current_loss = 0 # reset loss so it doesn't build up in the tracking
 
+    # show training results
     if show:
-        # show training results
         plt.figure()
         plt.plot(all_losses)
         plt.show()
@@ -88,7 +89,7 @@ all_losses = train(rnn, train_set, num_epoch = 10) # training took several hours
 torch.save(rnn, "./my_model")
 
 # TEST NEURAL NETWORK
-def test(rnn:MyRNN, testing_data:MyDataset, classes:list[str]):
+def test(rnn:MyRNN, testing_data:MyDataset, classes:list[str], show:bool = True):
     print(f'Start testing on {len(testing_data)} examples')
 
     confusion_matrix = torch.zeros(len(classes), len(classes))
@@ -122,17 +123,18 @@ def test(rnn:MyRNN, testing_data:MyDataset, classes:list[str]):
     print(str(percent_correct) + "% correct")
 
     # plot the confusion matrix
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-    cax = ax.matshow(confusion_matrix.cpu().numpy()) # need to convert from gpu to cpu mem bcs numpy uses cpu
-    fig.colorbar(cax)
+    if show:
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        cax = ax.matshow(confusion_matrix.cpu().numpy()) # need to convert from gpu to cpu mem bcs numpy uses cpu
+        fig.colorbar(cax)
 
-    ax.set_xticks(np.arange(len(classes)), labels=classes, rotation=90)
-    ax.set_yticks(np.arange(len(classes)), labels=classes)
-    ax.xaxis.set_major_locator(ticker.MultipleLocator(1))
-    ax.yaxis.set_major_locator(ticker.MultipleLocator(1))
-    plt.xlabel("Answer")
-    plt.ylabel("Guess")
-    plt.show()
+        ax.set_xticks(np.arange(len(classes)), labels=classes, rotation=90)
+        ax.set_yticks(np.arange(len(classes)), labels=classes)
+        ax.xaxis.set_major_locator(ticker.MultipleLocator(1))
+        ax.yaxis.set_major_locator(ticker.MultipleLocator(1))
+        plt.xlabel("Answer")
+        plt.ylabel("Guess")
+        plt.show()
 
 test(rnn, test_set, all_data.labels_unique)
