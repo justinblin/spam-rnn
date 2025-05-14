@@ -37,10 +37,18 @@ def train(rnn:MyRNN, training_data:MyDataset, num_epoch:int = 10, batch_size:int
 
     # go thru each epoch
     for epoch_index in range(num_epoch):
+        # encountering problem where 85% of data is ham, only 15% is spam so it's missing spam often
+            # fix by only using 2/3 of the ham and all the spam AND using a weighted loss function
+
+        # get a random 2/3 of the ham and all of the spam, instead of all of the indices in the training data
+        temp = training_data.ham_index_list
+        random.shuffle(temp)
+        temp = temp[:round(len(temp)*2/3)]
+
         # split training data into batches
-        batches = list(range(len(training_data))) # make list of indices (for each tensor) going from 0 to length of training data
+        batches = training_data.spam_index_list + temp
         random.shuffle(batches)
-        batches = np.array_split(batches, len(batches) // batch_size) # integer division AKA split list into batches of indices
+        batches = np.array_split(batches, round(len(batches) / batch_size)) # split list into batches of indices
 
         # go thru each batch
         for batch_index, batch in enumerate(batches):
@@ -85,7 +93,7 @@ def train(rnn:MyRNN, training_data:MyDataset, num_epoch:int = 10, batch_size:int
 
     return all_losses
 
-all_losses = train(rnn, train_set, num_epoch = 10, criterion = nn.NLLLoss(weight = torch.tensor([.15, .85])))
+all_losses = train(rnn, train_set, num_epoch = 20, criterion = nn.NLLLoss(weight = torch.tensor([.10, .90])))
 
 torch.save(rnn, "./my_model")
 

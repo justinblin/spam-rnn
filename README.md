@@ -1,10 +1,16 @@
 # To Do
 - Retrain RNN to make better, do something about the unbalaced dataset  
-    - Mess with the cost function to make missing spam more costly? (don't really wanna mess around/build own cost function)  
-        - Maybe check Pytorch doc if there's a builtin weighted cost func  
+    - ~~Mess with the cost function to make missing spam more costly? (don't really wanna mess around/build own cost function)~~  
+        - ~~Maybe check Pytorch doc if there's a builtin weighted cost func~~  
     - Make each batch have a fixed number of spam (currently 85/15, try like 70/30)  
+    - More epochs, more aggressive loss weighting?
+        - Seem to be missing more spam than misclassifying ham as spam, make it more aggressive with guessing spam  
+        [0.82, 0.08] guesses  
+        [0.04, 0.06]  
+        actual
 
-- Look at different criteria for testing and test more often (withing the training loop?)  
+- Look at different criteria for testing and test more often (withing the training loop every couple epochs?)  
+    - Graph the testing score over time and show with training loss? Could help against overfitting
 - Add project to website/resume  
 - Allow bot to pm mods or kick spammers  
 

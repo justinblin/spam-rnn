@@ -13,6 +13,9 @@ class MyDataset(Dataset):
         self.label_list:list[str] = [] # list of labels (ham or spam)
         self.label_list_tensors:list[torch.Tensor] = [] # list of labels (ham or spam) in tensors
 
+        self.spam_index_list:list[int] = []
+        self.ham_index_list:list[int] = []
+
         # read the data from the csv file
         self.labels_unique = ['ham', 'spam']
         for file_index, file in enumerate(data_locations): # go thru each file you input
@@ -22,12 +25,16 @@ class MyDataset(Dataset):
                 label = temp_list[0]
                 data = ''.join(temp_list[1:])
 
-                # print(str(file_index) + ' ' + str(line_index) + ' ' + str(temp_list))
-
                 self.data_list.append(preprocess.unicode_to_ascii(data))
                 self.data_list_tensors.append(preprocess.string_to_tensor(self.data_list[line_index]))
                 self.label_list.append(label)
                 self.label_list_tensors.append(torch.tensor([self.labels_unique.index(self.label_list[line_index])]))
+
+                # track where the spam and ham is
+                if label == 'spam':
+                    self.spam_index_list.append(len(self.data_list)-1)
+                elif label == 'ham':
+                    self.ham_index_list.append(len(self.data_list)-1)
         
     def __len__(self) -> int:
         return len(self.data_list)
