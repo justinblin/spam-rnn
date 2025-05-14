@@ -18,14 +18,14 @@ torch.set_default_device(device)
 print(device)
 
 # SETUP DATASET
-all_data = MyDataset([',', '\t'], ['data/kaggle spam.csv', 'data/UC Irvine collection/SMSSpamCollection'])
+all_data = MyDataset([',', '\t'], ['data/kaggle spam.csv', 'data/UC Irvine collection/SMSSpamCollection']) # 11147 total testcases
 train_set, test_set, extra_set = torch.utils.data.random_split(all_data, [.8, .2, .0], generator = torch.Generator(device = device).manual_seed(326))
 
 # CREATE/TRAIN NN
 rnn = MyRNN(len(preprocess.allowed_char), 512, len(all_data.labels_unique))
 
 # train neural network
-def train(rnn:MyRNN, training_data:MyDataset, num_epoch:int = 10, batch_size:int = 64, target_loss:float = 0.05, 
+def train(rnn:MyRNN, training_data:torch.utils.data.Subset, num_epoch:int = 10, batch_size:int = 64, target_loss:float = 0.05, 
           learning_rate:float = 0.05, criterion = nn.NLLLoss(), show:bool = True):
     # track loss over time
     current_loss = 0
@@ -33,20 +33,25 @@ def train(rnn:MyRNN, training_data:MyDataset, num_epoch:int = 10, batch_size:int
     rnn.train() # flag that you're starting to train now
     optimizer = torch.optim.SGD(rnn.parameters(), lr = learning_rate) # stochastic gradient descent
 
-    print(f'Start training on {len(training_data)} examples')
+    training_data_indices = training_data.indices # have to manually recreate what the training dataset's lists WOULD look like since random_split makes Subsets instead of new Datasets
+    training_data_ham_index_list = list(set(training_data.dataset.ham_index_list) & set(training_data_indices))
+    training_data_spam_index_list = list(set(training_data.dataset.spam_index_list) & set(training_data_indices))
+
+    print(f'Start training on {len(training_data)} examples, {len(training_data_ham_index_list)} ham {len(training_data_spam_index_list)} spam')
 
     # go thru each epoch
     for epoch_index in range(num_epoch):
         # encountering problem where 85% of data is ham, only 15% is spam so it's missing spam often
             # fix by only using 2/3 of the ham and all the spam AND using a weighted loss function
 
-        # get a random 2/3 of the ham and all of the spam, instead of all of the indices in the training data
-        temp = training_data.ham_index_list
-        random.shuffle(temp)
-        temp = temp[:round(len(temp)*2/3)]
-
+        # each epoch, get a random 2/3 of the ham and all of the spam, instead of all of the indices in the training data
+        
+        training_data_ham_index_list = list(set(training_data.dataset.ham_index_list) & set(training_data_indices))
+        random.shuffle(training_data_ham_index_list)
+        training_data_ham_index_list = training_data_ham_index_list[:round(len(training_data_ham_index_list)*2/3)]
+        
         # split training data into batches
-        batches = training_data.spam_index_list + temp
+        batches = training_data_spam_index_list + training_data_ham_index_list
         random.shuffle(batches)
         batches = np.array_split(batches, round(len(batches) / batch_size)) # split list into batches of indices
 
@@ -56,7 +61,7 @@ def train(rnn:MyRNN, training_data:MyDataset, num_epoch:int = 10, batch_size:int
             # go thru each tensor in this batch
             for curr_elem in batch:
                 # run forward and figure out the loss
-                (label_tensor, name_tensor, label, name) = training_data[curr_elem]
+                (label_tensor, name_tensor, label, name) = training_data.dataset[curr_elem]
                 output = rnn(name_tensor) # tensor that's outputted
                 loss = criterion(output, label_tensor)
                 batch_loss += loss
@@ -93,7 +98,7 @@ def train(rnn:MyRNN, training_data:MyDataset, num_epoch:int = 10, batch_size:int
 
     return all_losses
 
-all_losses = train(rnn, train_set, num_epoch = 20, criterion = nn.NLLLoss(weight = torch.tensor([.10, .90])))
+all_losses = train(rnn, train_set, num_epoch = 20, criterion = nn.NLLLoss(weight = torch.tensor([.15, .85])))
 
 torch.save(rnn, "./my_model")
 
