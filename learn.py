@@ -9,21 +9,6 @@ import torch.nn as nn
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 
-# use GPU if possible
-device = torch.device('cpu')
-if torch.cuda.is_available():
-    device = torch.device('cuda')
-torch.set_default_device(device)
-
-print(device)
-
-# SETUP DATASET
-all_data = MyDataset([',', '\t'], ['data/kaggle spam.csv', 'data/UC Irvine collection/SMSSpamCollection']) # 11147 total testcases
-train_set, test_set, extra_set = torch.utils.data.random_split(all_data, [.8, .2, .0])
-
-# CREATE/TRAIN NN
-rnn = MyRNN(len(preprocess.allowed_char), 512, len(all_data.labels_unique))
-
 # train neural network
 def train(rnn:MyRNN, training_data:torch.utils.data.Subset, num_epoch:int = 10, batch_size:int = 64, target_loss:float = 0.05, 
           learning_rate:float = 0.05, criterion = nn.NLLLoss(), show:bool = True):
@@ -34,9 +19,6 @@ def train(rnn:MyRNN, training_data:torch.utils.data.Subset, num_epoch:int = 10, 
     optimizer = torch.optim.SGD(rnn.parameters(), lr = learning_rate, momentum = 0.5) # stochastic gradient descent
         # momentum uses previous steps in the current step, faster training by reducing oscillation
 
-    training_data_indices = training_data.indices # have to manually recreate what the training dataset's lists WOULD look like since random_split makes Subsets instead of new Datasets
-    training_data_spam_index_list = list(set(training_data.dataset.spam_index_list) & set(training_data_indices))
-
     print(f'Start training on {len(training_data)} examples')
 
     # go thru each epoch
@@ -45,10 +27,14 @@ def train(rnn:MyRNN, training_data:torch.utils.data.Subset, num_epoch:int = 10, 
             # fix by only using 2/3 of the ham and all the spam AND using a weighted loss function
 
         # each epoch, get a random 2/3 of the ham and all of the spam, instead of all of the indices in the training data
+
+        training_data_indices = training_data.indices # have to manually recreate what the training dataset's lists WOULD look like since random_split makes Subsets instead of new Datasets
+        training_data_spam_index_list = list(set(training_data.dataset.spam_index_list) & set(training_data_indices))
         
         training_data_ham_index_list = list(set(training_data.dataset.ham_index_list) & set(training_data_indices))
         random.shuffle(training_data_ham_index_list)
         training_data_ham_index_list = training_data_ham_index_list[:round(len(training_data_ham_index_list)*1/4)]
+        
         print(f'{len(training_data_ham_index_list)} ham, {len(training_data_spam_index_list)} spam')
         
         # split training data into batches
@@ -99,10 +85,6 @@ def train(rnn:MyRNN, training_data:torch.utils.data.Subset, num_epoch:int = 10, 
 
     return all_losses
 
-all_losses = train(rnn, train_set, num_epoch = 20, criterion = nn.NLLLoss(weight = torch.tensor([.33, .67])))
-
-torch.save(rnn, "./my_model")
-
 # TEST NEURAL NETWORK
 def test(rnn:MyRNN, testing_data:MyDataset, classes:list[str], show:bool = True):
     print(f'Start testing on {len(testing_data)} examples')
@@ -152,4 +134,27 @@ def test(rnn:MyRNN, testing_data:MyDataset, classes:list[str], show:bool = True)
         plt.ylabel("Guess")
         plt.show()
 
-test(rnn, test_set, all_data.labels_unique)
+# SETUP DATASET (outside to allow other files to grab the train/test subsets)
+all_data = MyDataset([',', '\t'], ['data/kaggle spam.csv', 'data/UC Irvine collection/SMSSpamCollection']) # 11147 total testcases
+train_set, test_set, extra_set = torch.utils.data.random_split(all_data, [.8, .2, .0])
+
+def main():
+    # use GPU if possible
+    device = torch.device('cpu')
+    if torch.cuda.is_available():
+        device = torch.device('cuda')
+    torch.set_default_device(device)
+
+    print(device)
+
+    # CREATE/TRAIN NN
+    rnn = MyRNN(len(preprocess.allowed_char), 512, len(all_data.labels_unique))
+
+    all_losses = train(rnn, train_set, num_epoch = 20, criterion = nn.NLLLoss(weight = torch.tensor([.33, .67])))
+
+    torch.save(rnn, "./my_model")
+
+    test(rnn, test_set, all_data.labels_unique)
+
+if __name__ == "__main__":
+    main()
