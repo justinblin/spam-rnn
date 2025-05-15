@@ -19,7 +19,7 @@ print(device)
 
 # SETUP DATASET
 all_data = MyDataset([',', '\t'], ['data/kaggle spam.csv', 'data/UC Irvine collection/SMSSpamCollection']) # 11147 total testcases
-train_set, test_set, extra_set = torch.utils.data.random_split(all_data, [.8, .2, .0], generator = torch.Generator(device = device).manual_seed(326))
+train_set, test_set, extra_set = torch.utils.data.random_split(all_data, [.8, .2, .0])
 
 # CREATE/TRAIN NN
 rnn = MyRNN(len(preprocess.allowed_char), 512, len(all_data.labels_unique))
@@ -31,13 +31,13 @@ def train(rnn:MyRNN, training_data:torch.utils.data.Subset, num_epoch:int = 10, 
     current_loss = 0
     all_losses = []
     rnn.train() # flag that you're starting to train now
-    optimizer = torch.optim.SGD(rnn.parameters(), lr = learning_rate) # stochastic gradient descent
+    optimizer = torch.optim.SGD(rnn.parameters(), lr = learning_rate, momentum = 0.5) # stochastic gradient descent
+        # momentum uses previous steps in the current step, faster training by reducing oscillation
 
     training_data_indices = training_data.indices # have to manually recreate what the training dataset's lists WOULD look like since random_split makes Subsets instead of new Datasets
-    training_data_ham_index_list = list(set(training_data.dataset.ham_index_list) & set(training_data_indices))
     training_data_spam_index_list = list(set(training_data.dataset.spam_index_list) & set(training_data_indices))
 
-    print(f'Start training on {len(training_data)} examples, {len(training_data_ham_index_list)} ham {len(training_data_spam_index_list)} spam')
+    print(f'Start training on {len(training_data)} examples')
 
     # go thru each epoch
     for epoch_index in range(num_epoch):
@@ -48,7 +48,8 @@ def train(rnn:MyRNN, training_data:torch.utils.data.Subset, num_epoch:int = 10, 
         
         training_data_ham_index_list = list(set(training_data.dataset.ham_index_list) & set(training_data_indices))
         random.shuffle(training_data_ham_index_list)
-        training_data_ham_index_list = training_data_ham_index_list[:round(len(training_data_ham_index_list)*2/3)]
+        training_data_ham_index_list = training_data_ham_index_list[:round(len(training_data_ham_index_list)*1/4)]
+        print(f'{len(training_data_ham_index_list)} ham, {len(training_data_spam_index_list)} spam')
         
         # split training data into batches
         batches = training_data_spam_index_list + training_data_ham_index_list
@@ -98,7 +99,7 @@ def train(rnn:MyRNN, training_data:torch.utils.data.Subset, num_epoch:int = 10, 
 
     return all_losses
 
-all_losses = train(rnn, train_set, num_epoch = 20, criterion = nn.NLLLoss(weight = torch.tensor([.15, .85])))
+all_losses = train(rnn, train_set, num_epoch = 20, criterion = nn.NLLLoss(weight = torch.tensor([.33, .67])))
 
 torch.save(rnn, "./my_model")
 
