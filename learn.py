@@ -1,13 +1,17 @@
 import torch
+import torch.nn as nn
+from torch.utils.data import DataLoader
+
+import random
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
+
 from dataset import MyDataset
 import preprocess
 import postprocess
 from rnn import MyRNN
-import random
-import numpy as np
-import torch.nn as nn
-import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
+from learning_rate_finder import HamSpamBatchSampler
 
 # train neural network
 def train(rnn:MyRNN, training_data:torch.utils.data.Subset, num_epoch:int = 10, batch_size:int = 64, target_loss:float = 0.05, 
@@ -42,6 +46,10 @@ def train(rnn:MyRNN, training_data:torch.utils.data.Subset, num_epoch:int = 10, 
         random.shuffle(batches)
         batches = np.array_split(batches, round(len(batches) / batch_size)) # split list into batches of indices
 
+        # use the custom sampler to make dataloader, return list of batches to iterate through
+        training_sampler = HamSpamBatchSampler(training_data, 64, 0.25)
+        training_dataloader = DataLoader(training_data, batch_sampler = training_sampler)
+
         # go thru each batch
         for batch_index, batch in enumerate(batches):
             batch_loss = 0 # total loss for this batch
@@ -63,7 +71,6 @@ def train(rnn:MyRNN, training_data:torch.utils.data.Subset, num_epoch:int = 10, 
 
             # show progress (10 per epoch)
             if batch_index % round(len(batches)/10) == 0:
-                # print(f'batch index: {batch_index} num batches: {len(batches)}, num batches tenth: {round(len(batches)/10)}')
                 print(f'{(int)(batch_index/len(batches)*100)}% complete, loss for current batch: {batch_loss.item() / len(batch)}')
 
         # log the current loss

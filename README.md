@@ -1,10 +1,14 @@
 # To Do
-- Retrain RNN to make better, do something about the unbalaced dataset  
-    - ~~Mess with the cost function to make missing spam more costly? (don't really wanna mess around/build own cost function)~~  
-        - ~~Maybe check Pytorch doc if there's a builtin weighted cost func~~  
-    - ~~Make each batch have a fixed number of spam (currently 85/15, try like 70/30)~~  
-    - More epochs, more aggressive loss weighting? Causes problems with outputs zeroing out  
-        - Seem to be missing more spam than misclassifying ham as spam, make it more aggressive with guessing spam  
+- Retrain RNN to make better
+    - Do something about the unbalaced dataset  
+        - ~~Mess with the cost function to make missing spam more costly? (don't really wanna build own cost function)~~  
+            - ~~Check Pytorch doc if there's a builtin weighted cost func~~  
+        - ~~Make each batch have a fixed number of spam (currently 85/15, try like 70/30)~~  
+        - ~~More epochs, more aggressive loss weighting? Causes problems with outputs zeroing out~~  
+            - ~~Seem to be missing more spam than misclassifying ham as spam, make it more aggressive with guessing spam~~  
+    - Fix loss plateaus
+        - Implement variable learning rates when loss doesn't decrease a certain amount over some epochs
+            - Need to refactor old code to use torch DataLoader and Sampler since LRFinder needs DataLoader
 
 - Look at different criteria for testing (validation loss, precision/recall/f1 score?) and test more often (within the training loop every couple epochs?)  
     - Graph the testing score over time and show with training loss? Could help against overfitting
