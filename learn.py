@@ -46,10 +46,6 @@ def train(rnn:MyRNN, training_data:torch.utils.data.Subset, num_epoch:int = 10, 
         random.shuffle(batches)
         batches = np.array_split(batches, round(len(batches) / batch_size)) # split list into batches of indices
 
-        # use the custom sampler to make dataloader, return list of batches to iterate through
-        training_sampler = HamSpamBatchSampler(training_data, 64, 0.25)
-        training_dataloader = DataLoader(training_data, batch_sampler = training_sampler)
-
         # go thru each batch
         for batch_index, batch in enumerate(batches):
             batch_loss = 0 # total loss for this batch
