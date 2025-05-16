@@ -7,14 +7,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 
-from dataset import MyDataset
+from dataset import MyDataset, get_batches_from_dataset
 import preprocess
 import postprocess
 from rnn import MyRNN
-from learning_rate_finder import HamSpamBatchSampler
+from learning_rate_finder import find_best_lr
 
 # train neural network
-def train(rnn:MyRNN, training_data:torch.utils.data.Subset, num_epoch:int = 10, batch_size:int = 64, target_loss:float = 0.05, 
+def train(rnn:MyRNN, training_data:torch.utils.data.Subset, ham_percent:float, num_epoch:int = 10, batch_size:int = 64, target_loss:float = 0.05, 
           learning_rate:float = 0.05, criterion = nn.NLLLoss(), show:bool = True):
     # track loss over time
     current_loss = 0
@@ -23,28 +23,11 @@ def train(rnn:MyRNN, training_data:torch.utils.data.Subset, num_epoch:int = 10, 
     optimizer = torch.optim.SGD(rnn.parameters(), lr = learning_rate, momentum = 0.5) # stochastic gradient descent
         # momentum uses previous steps in the current step, faster training by reducing oscillation
 
-    print(f'Start training on {len(training_data)} examples')
+    print(f'\nStart training on {len(training_data)} examples\n')
 
     # go thru each epoch
     for epoch_index in range(num_epoch):
-        # encountering problem where 85% of data is ham, only 15% is spam so it's missing spam often
-            # fix by only using 2/3 of the ham and all the spam AND using a weighted loss function
-
-        # each epoch, get a random 2/3 of the ham and all of the spam, instead of all of the indices in the training data
-
-        training_data_indices = training_data.indices # have to manually recreate what the training dataset's lists WOULD look like since random_split makes Subsets instead of new Datasets
-        training_data_spam_index_list = list(set(training_data.dataset.spam_index_list) & set(training_data_indices))
-        
-        training_data_ham_index_list = list(set(training_data.dataset.ham_index_list) & set(training_data_indices))
-        random.shuffle(training_data_ham_index_list)
-        training_data_ham_index_list = training_data_ham_index_list[:round(len(training_data_ham_index_list)*1/4)]
-        
-        print(f'{len(training_data_ham_index_list)} ham, {len(training_data_spam_index_list)} spam')
-        
-        # split training data into batches
-        batches = training_data_spam_index_list + training_data_ham_index_list
-        random.shuffle(batches)
-        batches = np.array_split(batches, round(len(batches) / batch_size)) # split list into batches of indices
+        batches = get_batches_from_dataset(training_data, batch_size, ham_percent)
 
         # go thru each batch
         for batch_index, batch in enumerate(batches):
@@ -80,6 +63,9 @@ def train(rnn:MyRNN, training_data:torch.utils.data.Subset, num_epoch:int = 10, 
 
         current_loss = 0 # reset loss so it doesn't build up in the tracking
 
+        # look for a new lr if there's a loss plateau (AKA 3 epochs w/o at least 10% improvement)
+        # TODO check the loss every 3 epochs (exclude idx 0), if it isn't >=10% better than the last time, find a new lr
+
     # show training results
     if show:
         plt.figure()
@@ -90,7 +76,7 @@ def train(rnn:MyRNN, training_data:torch.utils.data.Subset, num_epoch:int = 10, 
 
 # TEST NEURAL NETWORK
 def test(rnn:MyRNN, testing_data:MyDataset, classes:list[str], show:bool = True):
-    print(f'Start testing on {len(testing_data)} examples')
+    print(f'\nStart testing on {len(testing_data)} examples\n')
 
     confusion_matrix = torch.zeros(len(classes), len(classes))
     percent_correct = 0
@@ -137,10 +123,6 @@ def test(rnn:MyRNN, testing_data:MyDataset, classes:list[str], show:bool = True)
         plt.ylabel("Guess")
         plt.show()
 
-# SETUP DATASET (outside to allow other files to grab the train/test subsets)
-all_data = MyDataset([',', '\t'], ['data/kaggle spam.csv', 'data/UC Irvine collection/SMSSpamCollection']) # 11147 total testcases
-train_set, test_set, extra_set = torch.utils.data.random_split(all_data, [.8, .2, .0])
-
 def main():
     # use GPU if possible
     device = torch.device('cpu')
@@ -150,10 +132,17 @@ def main():
 
     print(device)
 
+    # SETUP DATASET
+    all_data = MyDataset([',', '\t'], ['data/kaggle spam.csv', 'data/UC Irvine collection/SMSSpamCollection']) # 11147 total testcases
+    train_set, test_set, extra_set = torch.utils.data.random_split(all_data, [.8, .2, .0])
+
     # CREATE/TRAIN NN
     rnn = MyRNN(len(preprocess.allowed_char), 512, len(all_data.labels_unique))
+    criterion = nn.NLLLoss(weight = torch.tensor([.33, .67]))
+    ham_percent = 0.25
 
-    all_losses = train(rnn, train_set, num_epoch = 20, criterion = nn.NLLLoss(weight = torch.tensor([.33, .67])))
+    best_lr = find_best_lr(rnn, criterion, train_set, ham_percent)
+    all_losses = train(rnn, train_set, ham_percent, num_epoch = 20, learning_rate = best_lr, criterion = criterion)
 
     torch.save(rnn, "./my_model")
 

@@ -1,17 +1,89 @@
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader, Sampler
 
 import math
 import random
 import numpy as np
 import matplotlib.pyplot as plt
 
-from dataset import MyDataset
+from dataset import MyDataset, get_batches_from_dataset
+from rnn import MyRNN
 
-def find_best_lr(model, criterion, optimizer, training_data:torch.utils.data.Subset) -> float:
+
+def find_best_lr(model:MyRNN, criterion, training_data:torch.utils.data.Subset, ham_percent:float, 
+                 batch_size:int = 64, num_batches:int = 8, low_bound = 0.001, num_bounds = 8, step_size = 2, show = True) -> float:
+    if show: print('\nSTART FINDING BEST LR\n')
     
+    torch.save(model, './my_model')
+    
+    loss_dict:dict[float:float] = {} # map lr to loss
+    batches = get_batches_from_dataset(training_data, batch_size, ham_percent)
+    if len(batches) > num_batches:
+        batches = batches[:num_batches]
+    if show: print(f'use {len(batches)} batches of {batch_size}')
 
+    curr_lr = low_bound
+    for index in range(num_bounds): # go through the  the lr's exponentially
+        # FIND THE LOSS BEFORE
+        current_loss = 0 # average loss for all the batches
+
+        for batch_index, batch in enumerate(batches): # go thru each batch
+            batch_loss = 0 # total loss for this batch
+            # go thru each tensor in this batch
+            for curr_elem in batch:
+                # run forward and figure out the loss
+                (label_tensor, name_tensor, label, name) = training_data.dataset[curr_elem]
+                output = model(name_tensor) # tensor that's outputted
+                loss = criterion(output, label_tensor)
+                batch_loss += loss
+
+            current_loss += batch_loss.item() / len(batch) # add average loss for this batch into current_loss
+
+        current_loss /= len(batches)
+
+
+        # DO BACK PROPOGATION AND FIND THE LOSS AFTER
+        optimizer = torch.optim.SGD(model.parameters(), lr = curr_lr, momentum = 0.5)
+
+        new_loss = 0 # average loss for all the batches
+
+        for batch_index, batch in enumerate(batches): # go thru each batch
+            batch_loss = 0 # total loss for this batch
+            # go thru each tensor in this batch
+            for curr_elem in batch:
+                # run forward and figure out the loss
+                (label_tensor, name_tensor, label, name) = training_data.dataset[curr_elem]
+                output = model(name_tensor) # tensor that's outputted
+                loss = criterion(output, label_tensor)
+                batch_loss += loss
+
+            batch_loss.backward() # find out how much to change each weight/bias
+            nn.utils.clip_grad_norm_(model.parameters(), 3)
+            optimizer.step() # apply the changes to weight/biases
+            optimizer.zero_grad() # prevent exploding gradients
+
+            new_loss += batch_loss.item() / len(batch) # add average loss for this batch into current_loss
+
+        new_loss /= len(batches)
+
+
+        # RECORD THE DIFFERENCE AND RESTORE THE MODEL FOR THE NEXT LR
+        loss_dict[curr_lr] = current_loss - new_loss # stick loss difference in the loss dict
+
+        # restore the model
+        model = torch.load('./my_model', weights_only = False)
+
+        if show: print(f'learning rate: {curr_lr}, loss improvement: {current_loss - new_loss}, old loss: {current_loss}, new loss: {new_loss}')
+
+        curr_lr *= step_size
+
+    # if show:print(loss_dict)
+
+    # return the key that had the largest loss difference
+    for key, value in loss_dict.items():
+        if value == max(loss_dict.values()):
+            if show: print(f'best learning rate: {key}')
+            return key
     return None
 
 def main():
@@ -20,17 +92,12 @@ def main():
     all_data = MyDataset([',', '\t'], ['data/kaggle spam.csv', 'data/UC Irvine collection/SMSSpamCollection']) # 11147 total testcases
     train_set, test_set, extra_set = torch.utils.data.random_split(all_data, [.8, .2, .0])
     
-    # class_weights:list[float] = [0.33, 0.67]
-    # learning_rate = 0.05
+    class_weights:list[float] = [0.33, 0.67]
 
-    # rnn = torch.load('./my_model', weights_only = False)
-    # criterion = nn.NLLLoss(weight = torch.tensor(class_weights))
-    # optimizer = torch.optim.SGD(rnn.parameters(), lr = learning_rate, momentum = 0.5)
-    # sampler = HamSpamBatchSampler(train_set, 64, 0.25)
-    # trainloader = DataLoader(train_set, batch_sampler = sampler)
+    rnn = torch.load('./my_model', weights_only = False)
+    criterion = nn.NLLLoss(weight = torch.tensor(class_weights))
 
-    # best_lr = find_best_lr(rnn, criterion, optimizer, trainloader)
-    # print(best_lr)
+    print(find_best_lr(rnn, criterion, train_set, 0.25))
 
 if __name__ == "__main__":
     main()

@@ -1,17 +1,11 @@
 # To Do
 - Retrain RNN to make better
-    - Do something about the unbalaced dataset  
-        - ~~Mess with the cost function to make missing spam more costly? (don't really wanna build own cost function)~~  
-            - ~~Check Pytorch doc if there's a builtin weighted cost func~~  
-        - ~~Make each batch have a fixed number of spam (currently 85/15, try like 70/30)~~  
-        - ~~More epochs, more aggressive loss weighting? Causes problems with outputs zeroing out~~  
-            - ~~Seem to be missing more spam than misclassifying ham as spam, make it more aggressive with guessing spam~~  
     - Fix loss plateaus
         - Implement variable learning rates when loss doesn't decrease a certain amount over some epochs
-            - Need to refactor old code to use torch DataLoader and Sampler since LRFinder needs DataLoader
 
 - Look at different criteria for testing (validation loss, precision/recall/f1 score?) and test more often (within the training loop every couple epochs?)  
     - Graph the testing score over time and show with training loss? Could help against overfitting
+
 - Add project to website/resume  
 - Allow bot to pm mods or kick spammers  
 
@@ -28,7 +22,15 @@ https://discord.com/oauth2/authorize?client_id=1370818702810939463&permissions=1
 
 <br>
 
-# Sections
+# Cool Features
+Since most messages are inherently NOT spam, the dataset available to train on in heavily imbalanced, requiring some 
+special techniques to train well. One example is having an increased cost for missing spam, encouraging the network to guess spam more often. Additionally, selecting batches to have a higher proportion of spam messages helps decrease imbalance at the cost of wasting 
+some data.
+
+Another problem I encountered was loss plateaus, where the network would reach a certain point and stop improving. One way I found to 
+deal with this was by creating a variable learning rate test that looks for the optimal learning rate whenever I encoutered a lack of significant progress over a certain amound of time.
+
+# Sections of the Code
 ## Recursive Neural Network
 preprocess.py/postprocess.py store useful data processing functions.  
 rnn.py has the structure of the RNN.  

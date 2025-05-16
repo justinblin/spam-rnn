@@ -2,6 +2,8 @@ from io import open
 import torch
 from torch.utils.data import Dataset
 import preprocess
+import random
+import numpy as np
 
 class MyDataset(Dataset):
     def __init__(self, seperator_chars:list[str], data_locations:list):
@@ -41,3 +43,25 @@ class MyDataset(Dataset):
     
     def __getitem__(self, index:int) -> tuple[list[torch.Tensor], list[torch.Tensor], list[str], list[str]]:
         return self.label_list_tensors[index], self.data_list_tensors[index], self.label_list[index], self.data_list[index]
+    
+def get_batches_from_dataset(subdata:torch.utils.data.Subset, batch_size:int, ham_percent:float) -> list[list[int]]:
+    # encountering problem where 85% of data is ham, only 15% is spam so it's missing spam often
+        # fix by only using 1/4 of the ham and all the spam AND using a weighted loss function
+
+    # each epoch, get a random 1/4 of the ham and all of the spam, instead of all of the indices in the training data
+
+    subdata_indices = subdata.indices # have to manually recreate what the training dataset's lists WOULD look like since random_split makes Subsets instead of new Datasets
+    subdata_spam_index_list = list(set(subdata.dataset.spam_index_list) & set(subdata_indices))
+    
+    subdata_ham_index_list = list(set(subdata.dataset.ham_index_list) & set(subdata_indices))
+    random.shuffle(subdata_ham_index_list)
+    subdata_ham_index_list = subdata_ham_index_list[:round(len(subdata_ham_index_list)*ham_percent)]
+    
+    print(f'{len(subdata_ham_index_list)} ham, {len(subdata_spam_index_list)} spam')
+    
+    # split training data into batches
+    batches = subdata_spam_index_list + subdata_ham_index_list
+    random.shuffle(batches)
+    batches = np.array_split(batches, round(len(batches) / batch_size)) # split list into batches of indices
+
+    return batches
