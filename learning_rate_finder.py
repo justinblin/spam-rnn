@@ -30,7 +30,7 @@ def find_loss(model:MyRNN, criterion, data_subset:torch.utils.data.Subset, batch
     return current_loss
 
 def find_best_lr(model:MyRNN, criterion, training_data:torch.utils.data.Subset, ham_percent:float, 
-                 batch_size:int = 64, num_batches:int = 8, low_bound = 0.001, num_bounds = 9, step_size = 2, show = True) -> float:
+                 batch_size:int = 64, num_batches:int = 8, low_bound = 0.001, num_steps = 9, step_size = 2, show = True) -> float:
     if show: print('\nSTART FINDING BEST LR\n')
     
     torch.save(model, './my_model')
@@ -42,7 +42,7 @@ def find_best_lr(model:MyRNN, criterion, training_data:torch.utils.data.Subset, 
     if show: print(f'use {len(batches)} batches of {batch_size} elements')
 
     curr_lr = low_bound
-    for index in range(num_bounds): # go through the  the lr's exponentially
+    for index in range(num_steps): # go through the  the lr's exponentially
         # FIND THE LOSS BEFORE
         current_loss = find_loss(model, criterion, training_data, batches)
 

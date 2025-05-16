@@ -72,8 +72,8 @@ def train(rnn:MyRNN, training_data:torch.utils.data.Subset, testing_data:torch.u
 
         # look for a new lr if there's a loss plateau
         # check the loss every 3 epochs (exclude idx 0), if it isn't >=10% better than the last time, find a new lr
-        if dynamic_lr and epoch_index % 3 == 0 and epoch_index != 0 and test_losses[epoch_index] > test_losses[epoch_index-3]*0.9:
-            learning_rate = find_best_lr(rnn, criterion, testing_data, ham_percent)
+        if dynamic_lr and epoch_index % 3 == 0 and epoch_index != 0 and all_losses[epoch_index] > all_losses[epoch_index-3]*0.9:
+            learning_rate = find_best_lr(rnn, criterion, training_data, ham_percent)
 
     # show training results
     if show_graph:
@@ -158,7 +158,7 @@ def main():
     ham_percent = 0.25
 
     best_lr = find_best_lr(rnn, criterion, train_set, ham_percent)
-    all_losses, test_losses = train(rnn, train_set, test_set, ham_percent, num_epoch = 5, learning_rate = best_lr, criterion = criterion)
+    all_losses, test_losses = train(rnn, train_set, test_set, ham_percent, num_epoch = 40, learning_rate = best_lr, criterion = criterion)
     print(f'train loss: {all_losses}')
     print(f'test loss: {test_losses}')
 
