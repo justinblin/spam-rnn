@@ -20,7 +20,7 @@ def find_best_lr(model:MyRNN, criterion, training_data:torch.utils.data.Subset, 
     batches = get_batches_from_dataset(training_data, batch_size, ham_percent)
     if len(batches) > num_batches:
         batches = batches[:num_batches]
-    if show: print(f'use {len(batches)} batches of {batch_size}')
+    if show: print(f'use {len(batches)} batches of {batch_size} elements')
 
     curr_lr = low_bound
     for index in range(num_bounds): # go through the  the lr's exponentially
@@ -82,7 +82,7 @@ def find_best_lr(model:MyRNN, criterion, training_data:torch.utils.data.Subset, 
     # return the key that had the largest loss difference
     for key, value in loss_dict.items():
         if value == max(loss_dict.values()):
-            if show: print(f'best learning rate: {key}')
+            if show: print(f'\nbest learning rate: {key}\n')
             return key
     return None
 

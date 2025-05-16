@@ -20,13 +20,16 @@ def train(rnn:MyRNN, training_data:torch.utils.data.Subset, ham_percent:float, n
     current_loss = 0
     all_losses = []
     rnn.train() # flag that you're starting to train now
-    optimizer = torch.optim.SGD(rnn.parameters(), lr = learning_rate, momentum = 0.5) # stochastic gradient descent
-        # momentum uses previous steps in the current step, faster training by reducing oscillation
 
     print(f'\nStart training on {len(training_data)} examples\n')
 
     # go thru each epoch
     for epoch_index in range(num_epoch):
+        print(f'start epoch {epoch_index}, learning rate: {learning_rate}')
+
+        optimizer = torch.optim.SGD(rnn.parameters(), lr = learning_rate, momentum = 0.5) # stochastic gradient descent
+            # momentum uses previous steps in the current step, faster training by reducing oscillation
+
         batches = get_batches_from_dataset(training_data, batch_size, ham_percent)
 
         # go thru each batch
@@ -63,8 +66,11 @@ def train(rnn:MyRNN, training_data:torch.utils.data.Subset, ham_percent:float, n
 
         current_loss = 0 # reset loss so it doesn't build up in the tracking
 
-        # look for a new lr if there's a loss plateau (AKA 3 epochs w/o at least 10% improvement)
-        # TODO check the loss every 3 epochs (exclude idx 0), if it isn't >=10% better than the last time, find a new lr
+        # look for a new lr if there's a loss plateau
+        # check the loss every 3 epochs (exclude idx 0), if it isn't >=10% better than the last time, find a new lr
+        if epoch_index % 3 == 0 and epoch_index != 0:
+            if all_losses[epoch_index] > all_losses[epoch_index-3]*0.9:
+                learning_rate = find_best_lr(rnn, criterion, training_data, ham_percent)
 
     # show training results
     if show:
