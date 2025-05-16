@@ -1,7 +1,7 @@
 # To Do
 - Retrain RNN to make better
-    - Fix loss plateaus
-        - Implement variable learning rates when loss doesn't decrease a certain amount over some epochs
+    - ~~Fix loss plateaus~~
+        - ~~Implement variable learning rates when loss doesn't decrease a certain amount over some epochs~~
 
 - Look at different criteria for testing (validation loss, precision/recall/f1 score?) and test more often (within the training loop every couple epochs?)  
     - Graph the testing score over time and show with training loss? Could help against overfitting

@@ -10,8 +10,27 @@ from dataset import MyDataset, get_batches_from_dataset
 from rnn import MyRNN
 
 
+def find_loss(model:MyRNN, criterion, data_subset:torch.utils.data.Subset, batches:list[list[int]]) -> float:
+    current_loss = 0 # average loss for all the batches
+
+    for batch_index, batch in enumerate(batches): # go thru each batch
+        batch_loss = 0 # total loss for this batch
+        # go thru each tensor in this batch
+        for curr_elem in batch:
+            # run forward and figure out the loss
+            (label_tensor, name_tensor, label, name) = data_subset.dataset[curr_elem]
+            output = model(name_tensor) # tensor that's outputted
+            loss = criterion(output, label_tensor)
+            batch_loss += loss
+
+        current_loss += batch_loss.item() / len(batch) # add average loss for this batch into current_loss
+
+    current_loss /= len(batches)
+
+    return current_loss
+
 def find_best_lr(model:MyRNN, criterion, training_data:torch.utils.data.Subset, ham_percent:float, 
-                 batch_size:int = 64, num_batches:int = 8, low_bound = 0.001, num_bounds = 8, step_size = 2, show = True) -> float:
+                 batch_size:int = 64, num_batches:int = 8, low_bound = 0.001, num_bounds = 9, step_size = 2, show = True) -> float:
     if show: print('\nSTART FINDING BEST LR\n')
     
     torch.save(model, './my_model')
@@ -25,21 +44,7 @@ def find_best_lr(model:MyRNN, criterion, training_data:torch.utils.data.Subset, 
     curr_lr = low_bound
     for index in range(num_bounds): # go through the  the lr's exponentially
         # FIND THE LOSS BEFORE
-        current_loss = 0 # average loss for all the batches
-
-        for batch_index, batch in enumerate(batches): # go thru each batch
-            batch_loss = 0 # total loss for this batch
-            # go thru each tensor in this batch
-            for curr_elem in batch:
-                # run forward and figure out the loss
-                (label_tensor, name_tensor, label, name) = training_data.dataset[curr_elem]
-                output = model(name_tensor) # tensor that's outputted
-                loss = criterion(output, label_tensor)
-                batch_loss += loss
-
-            current_loss += batch_loss.item() / len(batch) # add average loss for this batch into current_loss
-
-        current_loss /= len(batches)
+        current_loss = find_loss(model, criterion, training_data, batches)
 
 
         # DO BACK PROPOGATION AND FIND THE LOSS AFTER
@@ -76,8 +81,6 @@ def find_best_lr(model:MyRNN, criterion, training_data:torch.utils.data.Subset, 
         if show: print(f'learning rate: {curr_lr}, loss improvement: {current_loss - new_loss}, old loss: {current_loss}, new loss: {new_loss}')
 
         curr_lr *= step_size
-
-    # if show:print(loss_dict)
 
     # return the key that had the largest loss difference
     for key, value in loss_dict.items():

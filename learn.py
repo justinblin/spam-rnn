@@ -11,14 +11,15 @@ from dataset import MyDataset, get_batches_from_dataset
 import preprocess
 import postprocess
 from rnn import MyRNN
-from learning_rate_finder import find_best_lr
+from learning_rate_finder import find_best_lr, find_loss
 
 # train neural network
-def train(rnn:MyRNN, training_data:torch.utils.data.Subset, ham_percent:float, num_epoch:int = 10, batch_size:int = 64, target_loss:float = 0.05, 
-          learning_rate:float = 0.05, criterion = nn.NLLLoss(), show:bool = True):
+def train(rnn:MyRNN, training_data:torch.utils.data.Subset, testing_data:torch.utils.data.Subset, ham_percent:float, num_epoch:int = 10, batch_size:int = 64, target_loss:float = 0.05, 
+          learning_rate:float = 0.05, criterion = nn.NLLLoss(), show_graph:bool = True, dynamic_lr:bool = True) -> tuple[list[float]]:
     # track loss over time
     current_loss = 0
     all_losses = []
+    test_losses = []
     rnn.train() # flag that you're starting to train now
 
     print(f'\nStart training on {len(training_data)} examples\n')
@@ -55,33 +56,37 @@ def train(rnn:MyRNN, training_data:torch.utils.data.Subset, ham_percent:float, n
             if batch_index % round(len(batches)/10) == 0:
                 print(f'{(int)(batch_index/len(batches)*100)}% complete, loss for current batch: {batch_loss.item() / len(batch)}')
 
+        # check testing loss and add to list
+        test_losses.append(find_loss(rnn, criterion, testing_data, batches))
+
         # log the current loss
         current_loss /= len(batches)
         all_losses.append(current_loss)
-        print(f'\nFINISH EPOCH {epoch_index}: average batch loss = {all_losses[-1]}\n')
+        print(f'\nFINISH EPOCH {epoch_index}: average batch loss = {all_losses[-1]}, testing loss = {test_losses[-1]}\n')
 
         # cut early if you reach the goal
-        if current_loss < target_loss:
-            return all_losses
+        if test_losses[-1] < target_loss:
+            return all_losses, test_losses
 
         current_loss = 0 # reset loss so it doesn't build up in the tracking
 
         # look for a new lr if there's a loss plateau
         # check the loss every 3 epochs (exclude idx 0), if it isn't >=10% better than the last time, find a new lr
-        if epoch_index % 3 == 0 and epoch_index != 0:
-            if all_losses[epoch_index] > all_losses[epoch_index-3]*0.9:
-                learning_rate = find_best_lr(rnn, criterion, training_data, ham_percent)
+        if dynamic_lr and epoch_index % 3 == 0 and epoch_index != 0 and test_losses[epoch_index] > test_losses[epoch_index-3]*0.9:
+            learning_rate = find_best_lr(rnn, criterion, testing_data, ham_percent)
 
     # show training results
-    if show:
+    if show_graph:
         plt.figure()
         plt.plot(all_losses)
+        plt.plot(test_losses)
+        plt.legend(['train loss', 'test loss'])
         plt.show()
 
-    return all_losses
+    return all_losses, test_losses
 
 # TEST NEURAL NETWORK
-def test(rnn:MyRNN, testing_data:MyDataset, classes:list[str], show:bool = True):
+def test(rnn:MyRNN, testing_data:MyDataset, classes:list[str], show_graph:bool = True):
     print(f'\nStart testing on {len(testing_data)} examples\n')
 
     confusion_matrix = torch.zeros(len(classes), len(classes))
@@ -110,12 +115,17 @@ def test(rnn:MyRNN, testing_data:MyDataset, classes:list[str], show:bool = True)
     if graph_total > 0:
         confusion_matrix /= graph_total
     percent_correct = (percent_correct*100)//len(testing_data)
+    precision = confusion_matrix[1][1]/sum(confusion_matrix[1]) # AKA when you guess spam, how many were right
+    recall = confusion_matrix[1][1]/(confusion_matrix[0][1]+confusion_matrix[1][1]) # AKA of all the spam, how many did you guess right
 
     print(torch.round(confusion_matrix, decimals = 2))
-    print(str(percent_correct) + "% correct")
+    print(f'{percent_correct}% correct')
+    print(f'precision: {precision}')
+    print(f'recall: {recall}')
+    print(f'f1 score: {2*precision*recall/(precision+recall)}')
 
     # plot the confusion matrix
-    if show:
+    if show_graph:
         fig = plt.figure()
         ax = fig.add_subplot(111)
         cax = ax.matshow(confusion_matrix.cpu().numpy()) # need to convert from gpu to cpu mem bcs numpy uses cpu
@@ -148,7 +158,9 @@ def main():
     ham_percent = 0.25
 
     best_lr = find_best_lr(rnn, criterion, train_set, ham_percent)
-    all_losses = train(rnn, train_set, ham_percent, num_epoch = 20, learning_rate = best_lr, criterion = criterion)
+    all_losses, test_losses = train(rnn, train_set, test_set, ham_percent, num_epoch = 5, learning_rate = best_lr, criterion = criterion)
+    print(f'train loss: {all_losses}')
+    print(f'test loss: {test_losses}')
 
     torch.save(rnn, "./my_model")
 
