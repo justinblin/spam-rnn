@@ -14,10 +14,10 @@ from rnn import MyRNN
 from learning_rate_finder import find_best_lr, find_loss
 
 # train neural network
-def train(rnn:MyRNN, training_data:torch.utils.data.Subset, testing_data:torch.utils.data.Subset, ham_percent:float, num_epoch:int = 10, batch_size:int = 64, target_loss:float = 0.05, 
-          learning_rate:float = 0.05, criterion = nn.NLLLoss(), show_graph:bool = True, dynamic_lr:bool = True) -> tuple[list[float]]:
+def train(rnn:MyRNN, training_data:torch.utils.data.Subset, testing_data:torch.utils.data.Subset, ham_percent:float, 
+          num_epoch:int = 10, batch_size:int = 64, target_loss:float = 0.05, learning_rate:float = 0.064, 
+          criterion = nn.NLLLoss(), show_graph:bool = True, dynamic_lr:bool = True) -> tuple[list[float]]:
     # track loss over time
-    current_loss = 0
     train_losses = []
     test_losses = []
     learning_rates = []
@@ -29,10 +29,12 @@ def train(rnn:MyRNN, training_data:torch.utils.data.Subset, testing_data:torch.u
     for epoch_index in range(num_epoch):
         print(f'start epoch {epoch_index}, learning rate: {learning_rate}')
 
-        optimizer = torch.optim.SGD(rnn.parameters(), lr = learning_rate, momentum = 0.9) # stochastic gradient descent
+        optimizer = torch.optim.SGD(rnn.parameters(), lr = learning_rate, momentum = 0.5) # stochastic gradient descent
             # momentum uses previous steps in the current step, faster training by reducing oscillation
 
         batches = get_batches_from_dataset(training_data, batch_size, ham_percent)
+
+        current_loss = 0 # reset loss so it doesn't build up in the tracking
 
         # go thru each batch
         for batch_index, batch in enumerate(batches):
@@ -71,8 +73,6 @@ def train(rnn:MyRNN, training_data:torch.utils.data.Subset, testing_data:torch.u
         # cut early if you reach the goal
         if test_losses[-1] < target_loss:
             break
-
-        current_loss = 0 # reset loss so it doesn't build up in the tracking
 
         # look for a new lr if there's a loss plateau
         # check the loss every 3 epochs (exclude idx 0), if it isn't >=10% better than the last time, find a new lr
@@ -161,12 +161,16 @@ def main():
     train_set, test_set, extra_set = torch.utils.data.random_split(all_data, [.8, .2, .0])
 
     # CREATE/TRAIN NN
-    rnn = MyRNN(len(preprocess.allowed_char), 512, len(all_data.labels_unique))
+    from_scratch = False # train a new model OR keep training a previous model
+
+    if from_scratch: rnn = MyRNN(len(preprocess.allowed_char), 512, len(all_data.labels_unique))
+    else: rnn = torch.load('./my_model', weights_only = False) # train off a pretrained model instead of from scratch
     criterion = nn.NLLLoss(weight = torch.tensor([.33, .67]))
     ham_percent = 0.25
 
-    best_lr = find_best_lr(rnn, criterion, train_set, ham_percent)
-    train_losses, test_losses, learning_rates = train(rnn, train_set, test_set, ham_percent, num_epoch = 60, learning_rate = best_lr, criterion = criterion)
+    if from_scratch: best_lr = 0.064
+    else: best_lr = find_best_lr(rnn, criterion, train_set, ham_percent)
+    train_losses, test_losses, learning_rates = train(rnn, train_set, test_set, ham_percent, num_epoch = 100, learning_rate = best_lr, criterion = criterion)
 
     torch.save(rnn, "./my_model")
 
