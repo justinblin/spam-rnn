@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 
 from dataset import MyDataset, get_batches_from_dataset
 from rnn import MyRNN
+import preprocess
 
 
 def find_loss(model:MyRNN, criterion, data_subset:torch.utils.data.Subset, batches:list[list[int]]) -> float:
@@ -30,7 +31,7 @@ def find_loss(model:MyRNN, criterion, data_subset:torch.utils.data.Subset, batch
     return current_loss
 
 def find_best_lr(model:MyRNN, criterion, training_data:torch.utils.data.Subset, ham_percent:float, 
-                 batch_size:int = 64, num_batches:int = 8, low_bound = 0.001, num_steps = 9, step_size = 2, show = True) -> float:
+                 batch_size:int = 64, num_batches:int = 8, low_bound = 0.001, num_steps = 11, step_size = 2, show = True) -> float:
     if show: print('\nSTART FINDING BEST LR\n')
     
     torch.save(model, './my_model')
@@ -82,22 +83,23 @@ def find_best_lr(model:MyRNN, criterion, training_data:torch.utils.data.Subset, 
 
         curr_lr *= step_size
 
-    # return the key that had the largest loss difference
-    for key, value in loss_dict.items():
-        if value == max(loss_dict.values()):
-            if show: print(f'\nbest learning rate: {key}\n')
-            return key
+    # return the key that had the largest loss difference (pick the largest one if ties)
+    loss_dict_list = []
+    for key, value in loss_dict.items(): # turn dict into list
+        loss_dict_list.append((key, value))
+    for index in range(len(loss_dict_list)-1, -1, -1): # go backwards thru list
+        if loss_dict_list[index][1] == max(loss_dict.values()):
+            if show: print(f'\nbest learning rate: {loss_dict_list[index][0]}\n')
+            return loss_dict_list[index][0]
     return None
 
 def main():
-    # find some way to pass the train_set over here, maybe put it in a file?
-
     all_data = MyDataset([',', '\t'], ['data/kaggle spam.csv', 'data/UC Irvine collection/SMSSpamCollection']) # 11147 total testcases
     train_set, test_set, extra_set = torch.utils.data.random_split(all_data, [.8, .2, .0])
     
     class_weights:list[float] = [0.33, 0.67]
 
-    rnn = torch.load('./my_model', weights_only = False)
+    rnn = MyRNN(len(preprocess.allowed_char), 512, len(all_data.labels_unique))
     criterion = nn.NLLLoss(weight = torch.tensor(class_weights))
 
     print(find_best_lr(rnn, criterion, train_set, 0.25))

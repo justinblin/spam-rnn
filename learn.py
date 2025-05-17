@@ -20,6 +20,7 @@ def train(rnn:MyRNN, training_data:torch.utils.data.Subset, testing_data:torch.u
     current_loss = 0
     all_losses = []
     test_losses = []
+    learning_rates = []
     rnn.train() # flag that you're starting to train now
 
     print(f'\nStart training on {len(training_data)} examples\n')
@@ -28,7 +29,7 @@ def train(rnn:MyRNN, training_data:torch.utils.data.Subset, testing_data:torch.u
     for epoch_index in range(num_epoch):
         print(f'start epoch {epoch_index}, learning rate: {learning_rate}')
 
-        optimizer = torch.optim.SGD(rnn.parameters(), lr = learning_rate, momentum = 0.5) # stochastic gradient descent
+        optimizer = torch.optim.SGD(rnn.parameters(), lr = learning_rate, momentum = 0.9) # stochastic gradient descent
             # momentum uses previous steps in the current step, faster training by reducing oscillation
 
         batches = get_batches_from_dataset(training_data, batch_size, ham_percent)
@@ -56,6 +57,9 @@ def train(rnn:MyRNN, training_data:torch.utils.data.Subset, testing_data:torch.u
             if batch_index % round(len(batches)/10) == 0:
                 print(f'{(int)(batch_index/len(batches)*100)}% complete, loss for current batch: {batch_loss.item() / len(batch)}')
 
+        # log the current learning rate
+        learning_rates.append(learning_rate)
+
         # check testing loss and add to list
         test_losses.append(find_loss(rnn, criterion, testing_data, batches))
 
@@ -66,7 +70,7 @@ def train(rnn:MyRNN, training_data:torch.utils.data.Subset, testing_data:torch.u
 
         # cut early if you reach the goal
         if test_losses[-1] < target_loss:
-            return all_losses, test_losses
+            break
 
         current_loss = 0 # reset loss so it doesn't build up in the tracking
 
@@ -80,10 +84,14 @@ def train(rnn:MyRNN, training_data:torch.utils.data.Subset, testing_data:torch.u
         plt.figure()
         plt.plot(all_losses)
         plt.plot(test_losses)
-        plt.legend(['train loss', 'test loss'])
+        plt.plot(learning_rates)
+        plt.legend(['train loss', 'test loss', 'learning rates'])
         plt.show()
 
-    return all_losses, test_losses
+    print(f'train_losses = {all_losses}')
+    print(f'test_losses = {test_losses}')
+    print(f'learning_rates = {learning_rates}')
+    return all_losses, test_losses, learning_rates
 
 # TEST NEURAL NETWORK
 def test(rnn:MyRNN, testing_data:MyDataset, classes:list[str], show_graph:bool = True):
@@ -158,9 +166,7 @@ def main():
     ham_percent = 0.25
 
     best_lr = find_best_lr(rnn, criterion, train_set, ham_percent)
-    all_losses, test_losses = train(rnn, train_set, test_set, ham_percent, num_epoch = 40, learning_rate = best_lr, criterion = criterion)
-    print(f'train loss: {all_losses}')
-    print(f'test loss: {test_losses}')
+    all_losses, test_losses, learning_rates = train(rnn, train_set, test_set, ham_percent, num_epoch = 40, learning_rate = best_lr, criterion = criterion)
 
     torch.save(rnn, "./my_model")
 

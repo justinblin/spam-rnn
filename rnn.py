@@ -13,7 +13,7 @@ class MyRNN(nn.Module):
         self.hidden_to_output = nn.Linear(hidden_size, output_size) 
         self.softmax = nn.Softmax(dim = 1)
         self.log_softmax = nn.LogSoftmax(dim = 1)
-        self.relu = nn.ReLU()
+        self.leaky_relu = nn.LeakyReLU()
 
         # self.hidden_layers = nn.Sequential(
         #     nn.Linear(hidden_size, hidden_size), # applies the linear equation (weights and biases)
@@ -26,16 +26,16 @@ class MyRNN(nn.Module):
         rnn_out, hidden = self.rnn(line_tensor) # input to hidden layer
 
         output = self.hidden_to_hidden_0(hidden[0]) # hidden layer to hidden
-        output = self.relu(output)
+        output = self.leaky_relu(output)
         if show: print(output)
 
         output = self.hidden_to_hidden_1(output) # hidden layer to hidden
-        output = self.relu(output)
+        output = self.leaky_relu(output)
         if show: print(output)
 
         output = self.hidden_to_output(output) # hidden layer to output
         if show: print(output)
-        output = self.relu(output)
+        output = self.leaky_relu(output)
         if show: print(output)
         if show: print(self.softmax(output))
         output = self.log_softmax(output) # does softmax and then ln so NLLLoss doesn't need it's own log (AKA faster)
