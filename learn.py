@@ -18,7 +18,7 @@ def train(rnn:MyRNN, training_data:torch.utils.data.Subset, testing_data:torch.u
           learning_rate:float = 0.05, criterion = nn.NLLLoss(), show_graph:bool = True, dynamic_lr:bool = True) -> tuple[list[float]]:
     # track loss over time
     current_loss = 0
-    all_losses = []
+    train_losses = []
     test_losses = []
     learning_rates = []
     rnn.train() # flag that you're starting to train now
@@ -65,8 +65,8 @@ def train(rnn:MyRNN, training_data:torch.utils.data.Subset, testing_data:torch.u
 
         # log the current loss
         current_loss /= len(batches)
-        all_losses.append(current_loss)
-        print(f'\nFINISH EPOCH {epoch_index}: average batch loss = {all_losses[-1]}, testing loss = {test_losses[-1]}\n')
+        train_losses.append(current_loss)
+        print(f'\nFINISH EPOCH {epoch_index}: training average batch loss = {train_losses[-1]}, testing loss = {test_losses[-1]}\n')
 
         # cut early if you reach the goal
         if test_losses[-1] < target_loss:
@@ -76,22 +76,22 @@ def train(rnn:MyRNN, training_data:torch.utils.data.Subset, testing_data:torch.u
 
         # look for a new lr if there's a loss plateau
         # check the loss every 3 epochs (exclude idx 0), if it isn't >=10% better than the last time, find a new lr
-        if dynamic_lr and epoch_index % 3 == 0 and epoch_index != 0 and all_losses[epoch_index] > all_losses[epoch_index-3]*0.9:
+        if dynamic_lr and epoch_index % 3 == 0 and epoch_index != 0 and train_losses[epoch_index] > train_losses[epoch_index-3]*0.9:
             learning_rate = find_best_lr(rnn, criterion, training_data, ham_percent)
 
     # show training results
     if show_graph:
         plt.figure()
-        plt.plot(all_losses)
+        plt.plot(train_losses)
         plt.plot(test_losses)
         plt.plot(learning_rates)
         plt.legend(['train loss', 'test loss', 'learning rates'])
         plt.show()
 
-    print(f'train_losses = {all_losses}')
+    print(f'train_losses = {train_losses}')
     print(f'test_losses = {test_losses}')
     print(f'learning_rates = {learning_rates}')
-    return all_losses, test_losses, learning_rates
+    return train_losses, test_losses, learning_rates
 
 # TEST NEURAL NETWORK
 def test(rnn:MyRNN, testing_data:MyDataset, classes:list[str], show_graph:bool = True):
@@ -166,7 +166,7 @@ def main():
     ham_percent = 0.25
 
     best_lr = find_best_lr(rnn, criterion, train_set, ham_percent)
-    all_losses, test_losses, learning_rates = train(rnn, train_set, test_set, ham_percent, num_epoch = 40, learning_rate = best_lr, criterion = criterion)
+    train_losses, test_losses, learning_rates = train(rnn, train_set, test_set, ham_percent, num_epoch = 60, learning_rate = best_lr, criterion = criterion)
 
     torch.save(rnn, "./my_model")
 
