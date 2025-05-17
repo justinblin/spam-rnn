@@ -76,8 +76,10 @@ def train(rnn:MyRNN, training_data:torch.utils.data.Subset, testing_data:torch.u
 
         # look for a new lr if there's a loss plateau
         # check the loss every 3 epochs (exclude idx 0), if it isn't >=10% better than the last time, find a new lr
-        if dynamic_lr and epoch_index % 3 == 0 and epoch_index != 0 and train_losses[epoch_index] > train_losses[epoch_index-3]*0.9:
-            learning_rate = find_best_lr(rnn, criterion, training_data, ham_percent)
+        if epoch_index % 3 == 0:
+            torch.save(rnn, './my_model') # save model every 3 epochs
+            if dynamic_lr and epoch_index != 0 and train_losses[epoch_index] > train_losses[epoch_index-3]*0.9:
+                learning_rate = find_best_lr(rnn, criterion, training_data, ham_percent)
 
     # show training results
     if show_graph:
@@ -91,6 +93,7 @@ def train(rnn:MyRNN, training_data:torch.utils.data.Subset, testing_data:torch.u
     print(f'train_losses = {train_losses}')
     print(f'test_losses = {test_losses}')
     print(f'learning_rates = {learning_rates}')
+    torch.save(rnn, "./my_model")
     return train_losses, test_losses, learning_rates
 
 # TEST NEURAL NETWORK
@@ -122,11 +125,11 @@ def test(rnn:MyRNN, testing_data:MyDataset, classes:list[str], show_graph:bool =
     graph_total = confusion_matrix.sum()
     if graph_total > 0:
         confusion_matrix /= graph_total
-    percent_correct = (percent_correct*100)//len(testing_data)
+    percent_correct = (percent_correct*100)/len(testing_data)
     precision = confusion_matrix[1][1]/sum(confusion_matrix[1]) # AKA when you guess spam, how many were right
     recall = confusion_matrix[1][1]/(confusion_matrix[0][1]+confusion_matrix[1][1]) # AKA of all the spam, how many did you guess right
 
-    print(torch.round(confusion_matrix, decimals = 2))
+    print(torch.round(confusion_matrix, decimals = 3))
     print(f'{percent_correct}% correct')
     print(f'precision: {precision}')
     print(f'recall: {recall}')
@@ -161,20 +164,21 @@ def main():
     train_set, test_set, extra_set = torch.utils.data.random_split(all_data, [.8, .2, .0])
 
     # CREATE/TRAIN NN
-    from_scratch = False # train a new model OR keep training a previous model
+    from_scratch:bool = False # train a new model OR keep training a previous model
+    train_model:bool = False
+    test_model:bool = True
 
     if from_scratch: rnn = MyRNN(len(preprocess.allowed_char), 512, len(all_data.labels_unique))
     else: rnn = torch.load('./my_model', weights_only = False) # train off a pretrained model instead of from scratch
     criterion = nn.NLLLoss(weight = torch.tensor([.33, .67]))
     ham_percent = 0.25
 
-    if from_scratch: best_lr = 0.064
-    else: best_lr = find_best_lr(rnn, criterion, train_set, ham_percent)
-    train_losses, test_losses, learning_rates = train(rnn, train_set, test_set, ham_percent, num_epoch = 100, learning_rate = best_lr, criterion = criterion)
+    if train_model:
+        if from_scratch: best_lr = 0.064
+        else: best_lr = find_best_lr(rnn, criterion, train_set, ham_percent)
+        train_losses, test_losses, learning_rates = train(rnn, train_set, test_set, ham_percent, num_epoch = 100, learning_rate = best_lr, criterion = criterion)
 
-    torch.save(rnn, "./my_model")
-
-    test(rnn, test_set, all_data.labels_unique)
+    if test_model: test(rnn, test_set, all_data.labels_unique)
 
 if __name__ == "__main__":
     main()
