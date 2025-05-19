@@ -16,7 +16,8 @@ from learning_rate_finder import find_best_lr, find_loss
 # train neural network
 def train(rnn:MyRNN, training_data:torch.utils.data.Subset, testing_data:torch.utils.data.Subset, ham_percent:float, 
           num_epoch:int = 10, batch_size:int = 64, target_loss:float = 0.05, learning_rate:float = 0.064, 
-          criterion = nn.NLLLoss(), show_graph:bool = True, dynamic_lr:bool = True) -> tuple[list[float]]:
+          criterion = nn.NLLLoss(), show_graph:bool = True, epoch_per_dynamic_lr:int = 3, progress_per_epoch:float=0.03, 
+          num_batches:int = 8, low_bound:float = 0.001, num_steps:int = 10) -> tuple[list[float]]:
     # track loss over time
     train_losses = []
     test_losses = []
@@ -76,10 +77,11 @@ def train(rnn:MyRNN, training_data:torch.utils.data.Subset, testing_data:torch.u
 
         # look for a new lr if there's a loss plateau
         # check the loss every 3 epochs (exclude idx 0), if it isn't >=10% better than the last time, find a new lr
-        if epoch_index % 3 == 0:
+        if epoch_per_dynamic_lr != 0 and epoch_index % epoch_per_dynamic_lr == 0:
             torch.save(rnn, './my_model') # save model every 3 epochs
-            if dynamic_lr and epoch_index != 0 and train_losses[epoch_index] > train_losses[epoch_index-3]*0.9:
-                learning_rate = find_best_lr(rnn, criterion, training_data, ham_percent)
+            if epoch_index != 0 and train_losses[epoch_index] > train_losses[epoch_index-epoch_per_dynamic_lr]*(1 - progress_per_epoch*epoch_per_dynamic_lr):
+                learning_rate = find_best_lr(rnn, criterion, training_data, ham_percent, batch_size=batch_size, 
+                                             num_batches=num_batches, low_bound=low_bound, num_steps = num_steps)
 
     # show training results
     if show_graph:
@@ -165,7 +167,7 @@ def main():
 
     # CREATE/TRAIN NN
     from_scratch:bool = False # train a new model OR keep training a previous model
-    train_model:bool = False
+    train_model:bool = True
     test_model:bool = True
 
     if from_scratch: rnn = MyRNN(len(preprocess.allowed_char), 512, len(all_data.labels_unique))
@@ -174,9 +176,19 @@ def main():
     ham_percent = 0.25
 
     if train_model:
+        # param for dynamic lr (good for last touches on training, defaults good for most of beginning)
+        num_batches = 12
+        low_bound = 0.001*2**-10
+        num_steps = 11
+        epoch_per_dynamic_lr = 1
+        progress_per_epoch = 1.0 # forces dynamic lr each epoch, regardless of improvement
+
         if from_scratch: best_lr = 0.064
-        else: best_lr = find_best_lr(rnn, criterion, train_set, ham_percent)
-        train_losses, test_losses, learning_rates = train(rnn, train_set, test_set, ham_percent, num_epoch = 100, learning_rate = best_lr, criterion = criterion)
+        else: best_lr = find_best_lr(rnn, criterion, train_set, ham_percent, num_batches=num_batches, low_bound=low_bound, 
+                                     num_steps=num_steps)
+        train(rnn, train_set, test_set, ham_percent, num_epoch = 100, learning_rate = best_lr, criterion = criterion, 
+              epoch_per_dynamic_lr=epoch_per_dynamic_lr, progress_per_epoch=progress_per_epoch, num_batches=num_batches, 
+              low_bound=low_bound, num_steps=num_steps)
 
     if test_model: test(rnn, test_set, all_data.labels_unique)
 

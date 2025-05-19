@@ -31,12 +31,12 @@ def find_loss(model:MyRNN, criterion, data_subset:torch.utils.data.Subset, batch
     return current_loss
 
 def find_best_lr(model:MyRNN, criterion, training_data:torch.utils.data.Subset, ham_percent:float, 
-                 batch_size:int = 64, num_batches:int = 8, low_bound = 0.001*2**-5, num_steps = 15, step_size = 2, show = True) -> float:
+                 batch_size:int = 64, num_batches:int = 8, low_bound = 0.001, num_steps = 10, step_size = 2, show = True) -> float:
     if show: print('\nSTART FINDING BEST LR\n')
     
     torch.save(model, './my_model')
     
-    loss_dict:dict[float:float] = {} # map lr to loss
+    loss_dict:dict[float:float] = {} # map lr to loss (could just have a single counter for max improvement instead of tracking all)
     batches = get_batches_from_dataset(training_data, batch_size, ham_percent)
     if len(batches) > num_batches:
         batches = batches[:num_batches]
