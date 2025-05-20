@@ -188,7 +188,7 @@ def main():
         # if making final adjustments to a model, use the custom dynamic lr param
         if fine_adjustment:
             target_loss = 0.03
-            num_batches = 24
+            num_batches = 50
             low_bound = 0.001*2**-12
             num_steps = 13
             epoch_per_dynamic_lr = 1

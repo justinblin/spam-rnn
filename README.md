@@ -14,6 +14,8 @@
 - ~~Look at different criteria for testing (validation loss, precision/recall/f1 score?) and test more often (within the training loop every couple epochs?)~~  
     - ~~Graph the testing score over time and show with training loss? Could help against overfitting~~
 
+- ~~Added GPU capability~~
+
 - Add project to website/resume  
 - Allow bot to pm mods or kick spammers  
 
