@@ -168,8 +168,9 @@ def main():
     train_set, test_set, extra_set = torch.utils.data.random_split(all_data, [.8, .2, .0], generator=torch.Generator(device=device))
 
     # CREATE/TRAIN NN
-    train_model:bool = True
-    from_scratch:bool = False # train a new model OR keep training a previous model
+    from_scratch:bool = False # use a new model OR keep a previous model
+
+    train_model:bool = False
     fine_adjustment:bool = True # make big steps OR fine adjustments
     
     test_model:bool = True
