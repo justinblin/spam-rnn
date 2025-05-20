@@ -12,11 +12,22 @@ def use(rnn:MyRNN, data:str, labels_unique:list[str]) -> tuple[str, int]:
         return guess, guess_index
 
 def main():
+    print(torch.__version__)
+
+    # use GPU if possible
+    device = torch.device('cpu')
+    if torch.cuda.is_available():
+        device = torch.device('cuda')
+    torch.set_default_device(device)
+
+    print(device)
+
     # get the list of unique labels
     labels_unique = ['ham', 'spam']
 
     # load the trained model
     rnn = torch.load('./my_model', weights_only = False)
+    rnn.to(device)
 
     # use the model
     example_data = "GENT! We are trying to contact you. Last weekends draw shows that you won a �1000 prize GUARANTEED. Call 09064012160. Claim Code K52. Valid 12hrs only. 150ppm"
