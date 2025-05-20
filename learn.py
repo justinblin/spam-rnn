@@ -168,30 +168,41 @@ def main():
     train_set, test_set, extra_set = torch.utils.data.random_split(all_data, [.8, .2, .0], generator=torch.Generator(device=device))
 
     # CREATE/TRAIN NN
-    from_scratch:bool = False # train a new model OR keep training a previous model
     train_model:bool = True
+    from_scratch:bool = False # train a new model OR keep training a previous model
+    fine_adjustment:bool = True # make big steps OR fine adjustments
+    
     test_model:bool = True
 
-    if from_scratch: rnn = MyRNN(len(preprocess.allowed_char), 512, len(all_data.labels_unique))
-    else: rnn = torch.load('./my_model', weights_only = False) # train off a pretrained model instead of from scratch
+    # train from scratch or load a previous pretrained model
+    if from_scratch:
+        rnn = MyRNN(len(preprocess.allowed_char), 512, len(all_data.labels_unique))
+    else:
+        rnn = torch.load('./my_model', weights_only = False)
+
     rnn.to(device)
     criterion = nn.NLLLoss(weight = torch.tensor([.33, .67]))
     ham_percent = 0.25
 
     if train_model:
-        # param for dynamic lr (good for last touches on training, defaults good for most of beginning)
-        num_batches = 24
-        low_bound = 0.001*2**-12
-        num_steps = 13
-        epoch_per_dynamic_lr = 1
-        progress_per_epoch = 1.0 # forces dynamic lr each epoch, regardless of improvement
+        # if making final adjustments to a model, use the custom dynamic lr param
+        if fine_adjustment:
+            target_loss = 0.03
+            num_batches = 24
+            low_bound = 0.001*2**-12
+            num_steps = 13
+            epoch_per_dynamic_lr = 1
+            progress_per_epoch = 1.0 # forces dynamic lr each epoch, regardless of improvement
 
-        if from_scratch: best_lr = 0.064
-        else: best_lr = find_best_lr(rnn, criterion, train_set, ham_percent, num_batches=num_batches, low_bound=low_bound, 
-                                     num_steps=num_steps)
-        train(rnn, train_set, test_set, ham_percent, num_epoch = 100, target_loss = 0.03, learning_rate = best_lr, criterion = criterion, 
-              epoch_per_dynamic_lr=epoch_per_dynamic_lr, progress_per_epoch=progress_per_epoch, num_batches=num_batches, 
-              low_bound=low_bound, num_steps=num_steps)
+            best_lr = find_best_lr(rnn, criterion, train_set, ham_percent, num_batches=num_batches, low_bound=low_bound, 
+                                   num_steps=num_steps)
+            
+            train(rnn, train_set, test_set, ham_percent, num_epoch=100, target_loss=target_loss, learning_rate=best_lr, 
+                  criterion=criterion, epoch_per_dynamic_lr=epoch_per_dynamic_lr, progress_per_epoch=progress_per_epoch, 
+                  num_batches=num_batches, low_bound=low_bound, num_steps=num_steps)
+        # if making big steps, use the defaults
+        else:
+            train(rnn, train_set, test_set, ham_percent, num_epoch=100, learning_rate=0.064, criterion=criterion)
 
     if test_model: test(rnn, test_set, all_data.labels_unique)
 
