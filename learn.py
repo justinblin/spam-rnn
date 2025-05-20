@@ -15,7 +15,7 @@ from learning_rate_finder import find_best_lr, find_loss
 
 # train neural network
 def train(rnn:MyRNN, training_data:torch.utils.data.Subset, testing_data:torch.utils.data.Subset, ham_percent:float, 
-          num_epoch:int = 10, batch_size:int = 64, target_loss:float = 0.05, learning_rate:float = 0.064, 
+          num_epoch:int = 10, batch_size:int = 64, target_loss:float = 0.075, learning_rate:float = 0.064, 
           criterion = nn.NLLLoss(), show_graph:bool = True, epoch_per_dynamic_lr:int = 3, progress_per_epoch:float=0.03, 
           num_batches:int = 8, low_bound:float = 0.001, num_steps:int = 10) -> tuple[list[float]]:
     # track loss over time
@@ -153,6 +153,8 @@ def test(rnn:MyRNN, testing_data:MyDataset, classes:list[str], show_graph:bool =
         plt.show()
 
 def main():
+    print(torch.__version__)
+
     # use GPU if possible
     device = torch.device('cpu')
     if torch.cuda.is_available():
@@ -163,7 +165,7 @@ def main():
 
     # SETUP DATASET
     all_data = MyDataset([',', '\t'], ['data/kaggle spam.csv', 'data/UC Irvine collection/SMSSpamCollection']) # 11147 total testcases
-    train_set, test_set, extra_set = torch.utils.data.random_split(all_data, [.8, .2, .0])
+    train_set, test_set, extra_set = torch.utils.data.random_split(all_data, [.8, .2, .0], generator=torch.Generator(device=device))
 
     # CREATE/TRAIN NN
     from_scratch:bool = False # train a new model OR keep training a previous model
@@ -172,21 +174,22 @@ def main():
 
     if from_scratch: rnn = MyRNN(len(preprocess.allowed_char), 512, len(all_data.labels_unique))
     else: rnn = torch.load('./my_model', weights_only = False) # train off a pretrained model instead of from scratch
+    rnn.to(device)
     criterion = nn.NLLLoss(weight = torch.tensor([.33, .67]))
     ham_percent = 0.25
 
     if train_model:
         # param for dynamic lr (good for last touches on training, defaults good for most of beginning)
-        num_batches = 12
-        low_bound = 0.001*2**-10
-        num_steps = 11
+        num_batches = 24
+        low_bound = 0.001*2**-12
+        num_steps = 13
         epoch_per_dynamic_lr = 1
         progress_per_epoch = 1.0 # forces dynamic lr each epoch, regardless of improvement
 
         if from_scratch: best_lr = 0.064
         else: best_lr = find_best_lr(rnn, criterion, train_set, ham_percent, num_batches=num_batches, low_bound=low_bound, 
                                      num_steps=num_steps)
-        train(rnn, train_set, test_set, ham_percent, num_epoch = 100, learning_rate = best_lr, criterion = criterion, 
+        train(rnn, train_set, test_set, ham_percent, num_epoch = 100, target_loss = 0.03, learning_rate = best_lr, criterion = criterion, 
               epoch_per_dynamic_lr=epoch_per_dynamic_lr, progress_per_epoch=progress_per_epoch, num_batches=num_batches, 
               low_bound=low_bound, num_steps=num_steps)
 
