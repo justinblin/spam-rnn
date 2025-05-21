@@ -7,11 +7,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from dataset import MyDataset, get_batches_from_dataset
-from rnn import MyRNN
-import preprocess
 
 
-def find_loss(model:MyRNN, criterion, data_subset:torch.utils.data.Subset, batches:list[list[int]]) -> float:
+def find_loss(model, criterion, data_subset:torch.utils.data.Subset, batches:list[list[int]]) -> float:
     current_loss = 0 # average loss for all the batches
 
     for batch_index, batch in enumerate(batches): # go thru each batch
@@ -30,7 +28,7 @@ def find_loss(model:MyRNN, criterion, data_subset:torch.utils.data.Subset, batch
 
     return current_loss
 
-def find_best_lr(model:MyRNN, criterion, training_data:torch.utils.data.Subset, ham_percent:float, 
+def find_best_lr(model, criterion, training_data:torch.utils.data.Subset, ham_percent:float, 
                  batch_size:int = 64, num_batches:int = 8, low_bound = 0.001, num_steps = 10, step_size = 2, show = True) -> float:
     if show: print('\nSTART FINDING BEST LR\n')
     
@@ -99,7 +97,7 @@ def main():
     
     class_weights:list[float] = [0.33, 0.67]
 
-    rnn = MyRNN(len(preprocess.allowed_char), 512, len(all_data.labels_unique))
+    rnn = torch.load('./my_model', weights_only = False)
     criterion = nn.NLLLoss(weight = torch.tensor(class_weights))
 
     print(find_best_lr(rnn, criterion, train_set, 0.25))

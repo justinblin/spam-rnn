@@ -1,9 +1,8 @@
 import torch
 import preprocess
 import postprocess
-from rnn import MyRNN
 
-def use(rnn:MyRNN, data:str, labels_unique:list[str]) -> tuple[str, int]:
+def use(rnn, data:str, labels_unique:list[str]) -> tuple[str, int]:
     rnn.eval()
     with torch.no_grad():
         data_tensors = preprocess.string_to_tensor(data)
