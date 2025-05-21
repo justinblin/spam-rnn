@@ -131,7 +131,7 @@ def test(rnn:MyRNN, testing_data:MyDataset, classes:list[str], show_graph:bool =
     precision = confusion_matrix[1][1]/sum(confusion_matrix[1]) # AKA when you guess spam, how many were right
     recall = confusion_matrix[1][1]/(confusion_matrix[0][1]+confusion_matrix[1][1]) # AKA of all the spam, how many did you guess right
 
-    print(torch.round(confusion_matrix, decimals = 3))
+    print(confusion_matrix)
     print(f'{percent_correct}% correct')
     print(f'precision: {precision}')
     print(f'recall: {recall}')

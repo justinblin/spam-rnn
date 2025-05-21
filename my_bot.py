@@ -13,8 +13,16 @@ intents.message_content = True
 client = discord.Client(intents = intents)
 
 # SETUP THE RNN
+print(torch.__version__)
+device = torch.device('cpu')
+if torch.cuda.is_available():
+    device = torch.device('cuda')
+torch.set_default_device(device)
+print(device)
+
 labels_unique = ['ham', 'spam']
 rnn = torch.load('./my_model', weights_only = False)
+rnn.to(device)
 
 @client.event
 async def on_ready():
