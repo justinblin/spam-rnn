@@ -27,6 +27,7 @@ def main():
     # load the trained model
     rnn = torch.load('./my_model', weights_only = False)
     rnn.to(device)
+    print(rnn)
 
     # use the model
     example_data = "GENT! We are trying to contact you. Last weekends draw shows that you won a �1000 prize GUARANTEED. Call 09064012160. Claim Code K52. Valid 12hrs only. 150ppm"

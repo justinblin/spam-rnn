@@ -1,5 +1,6 @@
 # To Do
 - Retrain RNN to make better
+    - Increase model complexity, more nodes/layers now that CUDA allows faster training
     - ~~Fix loss plateaus~~
         - ~~Implement variable learning rates when loss doesn't decrease a certain amount over some epochs~~
     - ~~Fix disappearing gradients~~
