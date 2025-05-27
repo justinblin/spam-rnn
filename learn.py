@@ -10,7 +10,7 @@ import matplotlib.ticker as ticker
 from dataset import MyDataset, get_batches_from_dataset
 import preprocess
 import postprocess
-from rnn import MyRNN, MyRNN_Big_Boi
+from rnn import MyRNN, MyRNN_4x_Linear_LeakyReLU
 from learning_rate_finder import find_best_lr, find_loss
 
 # train neural network
@@ -181,7 +181,7 @@ def main():
 
     # train from scratch or load a previous pretrained model
     if from_scratch:
-        rnn = MyRNN_Big_Boi(len(preprocess.allowed_char), 750, len(all_data.labels_unique))
+        rnn = MyRNN_4x_Linear_LeakyReLU(len(preprocess.allowed_char), 750, len(all_data.labels_unique))
     else:
         rnn = torch.load('./my_model', weights_only = False)
 

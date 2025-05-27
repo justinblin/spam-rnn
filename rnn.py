@@ -38,9 +38,9 @@ class MyRNN(nn.Module):
 
         return output
     
-class MyRNN_Big_Boi(nn.Module):
+class MyRNN_4x_Linear_LeakyReLU(nn.Module):
     def __init__(self, input_size:int, hidden_size:int, output_size:int):
-        super(MyRNN_Big_Boi, self).__init__()
+        super(MyRNN_4x_Linear_LeakyReLU, self).__init__()
 
         self.rnn = nn.RNN(input_size, hidden_size) # input to hidden size
         self.softmax = nn.Softmax(dim = 1)
@@ -55,12 +55,10 @@ class MyRNN_Big_Boi(nn.Module):
             nn.LeakyReLU(),
             nn.Linear(hidden_size, output_size),
             nn.LeakyReLU(),
-            nn.Linear(hidden_size, output_size),
-            nn.LeakyReLU(),
         )
 
     def forward(self, line_tensor:torch.Tensor, show = False) -> torch.Tensor:
-        if show: print('forward 5x linear/leaky ReLU')
+        if show: print('forward 4x linear/leaky ReLU')
         rnn_out, hidden = self.rnn(line_tensor) # input to hidden layer
         output = self.sequence(hidden[0]) # does all the hidden layers
 
