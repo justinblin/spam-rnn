@@ -10,12 +10,12 @@ import matplotlib.ticker as ticker
 from dataset import MyDataset, get_batches_from_dataset
 import preprocess
 import postprocess
-from rnn import MyRNN_3x_Linear_LeakyReLU, MyRNN_4x_Linear_LeakyReLU
+from rnn import MyRNN, MyRNN_Big_Boi
 from learning_rate_finder import find_best_lr, find_loss
 
 # train neural network
 def train(rnn, training_data:torch.utils.data.Subset, testing_data:torch.utils.data.Subset, ham_percent:float, 
-          num_epoch:int = 10, batch_size:int = 64, target_loss:float = 0.1, learning_rate:float = 0.064, 
+          num_epoch:int = 20, batch_size:int = 64, target_loss:float = 0.08, learning_rate:float = 0.064, 
           criterion = nn.NLLLoss(), show_graph:bool = True, epoch_per_dynamic_lr:int = 3, target_progress_per_epoch:float=0.03, 
           num_batches:int = 8, low_bound:float = 0.001, num_steps:int = 10) -> tuple[list[float]]:
     # track loss over time
@@ -28,12 +28,21 @@ def train(rnn, training_data:torch.utils.data.Subset, testing_data:torch.utils.d
 
     # go thru each epoch
     for epoch_index in range(num_epoch):
+        batches = get_batches_from_dataset(training_data, batch_size, ham_percent) # use the same batches for dynamic lr as training
+
+        # look for a new lr if there's a loss plateau
+        # check the loss every 3 epochs (default), if it isn't >=10% (default) better than the last time, find a new lr
+        if epoch_per_dynamic_lr != 0 and epoch_index % epoch_per_dynamic_lr == 0:
+            # exceptions for first and second activations since plateau detection needs at least 2 points
+            if epoch_index == 0 or epoch_index == epoch_per_dynamic_lr or \
+            train_losses[-1] > train_losses[-1-epoch_per_dynamic_lr]*(1 - target_progress_per_epoch*epoch_per_dynamic_lr):
+                learning_rate = find_best_lr(rnn, criterion, training_data, ham_percent, batches, batch_size=batch_size, 
+                                             num_batches=num_batches, low_bound=low_bound, num_steps=num_steps)
+                
         print(f'start epoch {epoch_index}, learning rate: {learning_rate}')
 
         optimizer = torch.optim.SGD(rnn.parameters(), lr = learning_rate, momentum = 0.5) # stochastic gradient descent
             # momentum uses previous steps in the current step, faster training by reducing oscillation
-
-        batches = get_batches_from_dataset(training_data, batch_size, ham_percent)
 
         current_loss = 0 # reset loss so it doesn't build up in the tracking
 
@@ -57,7 +66,7 @@ def train(rnn, training_data:torch.utils.data.Subset, testing_data:torch.utils.d
             current_loss += batch_loss.item() / len(batch) # add average loss for this batch into current_loss
 
             # show progress (10 per epoch)
-            if batch_index % round(len(batches)/10) == 0:
+            if batch_index % max(round(len(batches)/10),1) == 0:
                 print(f'{(int)(batch_index/len(batches)*100)}% complete, loss for current batch: {batch_loss.item() / len(batch)}')
 
         # log the current learning rate
@@ -77,13 +86,6 @@ def train(rnn, training_data:torch.utils.data.Subset, testing_data:torch.utils.d
         # cut early if you reach the goal
         if test_losses[-1] < target_loss:
             break
-
-        # look for a new lr if there's a loss plateau
-        # check the loss every 3 epochs (exclude idx 0), if it isn't >=10% better than the last time, find a new lr
-        if epoch_per_dynamic_lr != 0 and epoch_index % epoch_per_dynamic_lr == 0:
-            if epoch_index != 0 and train_losses[epoch_index] > train_losses[epoch_index-epoch_per_dynamic_lr]*(1 - target_progress_per_epoch*epoch_per_dynamic_lr):
-                learning_rate = find_best_lr(rnn, criterion, training_data, ham_percent, batch_size=batch_size, 
-                                             num_batches=num_batches, low_bound=low_bound, num_steps = num_steps)
 
     # show training results
     if show_graph:
@@ -118,7 +120,7 @@ def test(rnn, testing_data:MyDataset, classes:list[str], show_graph:bool = True)
             output = rnn(data_tensor)
             guess, guess_index = postprocess.label_from_output(output, classes) # the guess and index of the guess
 
-            if index % (round(len(testing_data)/10)) == 0: # print 10 outputs
+            if index % max(round(len(testing_data)/10),1) == 0: # print 10 outputs (max prevent /0 error)
                 print(f"testcase index: {index}, guess: {str(guess)}, guess_idx: {str(guess_index)}, label: {str(label)}, label_idx: {str(label_index)}")
 
             confusion_matrix[guess_index][label_index] += 1
@@ -170,16 +172,16 @@ def main():
     train_set, test_set, extra_set = torch.utils.data.random_split(all_data, [.8, .2, .0], generator=torch.Generator(device=device))
 
     # CREATE/TRAIN NN
-    from_scratch:bool = True # use a new model OR keep a previous model
+    from_scratch:bool = False # use a new model OR keep a previous model
 
     train_model:bool = True
-    fine_adjustment:bool = False # make big steps OR fine adjustments
+    fine_adjustment:bool = True # make big steps OR fine adjustments
     
     test_model:bool = True
 
     # train from scratch or load a previous pretrained model
     if from_scratch:
-        rnn = MyRNN_4x_Linear_LeakyReLU(len(preprocess.allowed_char), 750, len(all_data.labels_unique))
+        rnn = MyRNN_Big_Boi(len(preprocess.allowed_char), 750, len(all_data.labels_unique))
     else:
         rnn = torch.load('./my_model', weights_only = False)
 
@@ -192,22 +194,20 @@ def main():
     if train_model:
         # if making final adjustments to a model, use the custom dynamic lr param
         if fine_adjustment:
-            target_loss = 0.03
-            num_batches = 50
-            low_bound = 0.001*2**-12
-            num_steps = 13
+            num_epoch = 20
+            target_loss = 0.05
+            num_batches = 8
+            low_bound = 0.001*2**-6
+            num_steps = 11
             epoch_per_dynamic_lr = 1
             target_progress_per_epoch = 1.0 # forces dynamic lr each epoch, regardless of improvement
-
-            best_lr = find_best_lr(rnn, criterion, train_set, ham_percent, num_batches=num_batches, low_bound=low_bound, 
-                                   num_steps=num_steps)
             
-            train(rnn, train_set, test_set, ham_percent, num_epoch=100, target_loss=target_loss, learning_rate=best_lr, 
+            train(rnn, train_set, test_set, ham_percent, num_epoch=num_epoch, target_loss=target_loss,
                   criterion=criterion, epoch_per_dynamic_lr=epoch_per_dynamic_lr, target_progress_per_epoch=target_progress_per_epoch, 
                   num_batches=num_batches, low_bound=low_bound, num_steps=num_steps)
         # if making big steps, use the defaults
         else:
-            train(rnn, train_set, test_set, ham_percent, num_epoch=100, learning_rate=0.064, criterion=criterion)
+            train(rnn, train_set, test_set, ham_percent, criterion=criterion)
 
     if test_model: test(rnn, test_set, all_data.labels_unique)
 

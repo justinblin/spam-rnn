@@ -28,20 +28,22 @@ def find_loss(model, criterion, data_subset:torch.utils.data.Subset, batches:lis
 
     return current_loss
 
-def find_best_lr(model, criterion, training_data:torch.utils.data.Subset, ham_percent:float, 
+def find_best_lr(model, criterion, training_data:torch.utils.data.Subset, ham_percent:float, batches:list[list[int]], 
                  batch_size:int = 64, num_batches:int = 8, low_bound = 0.001, num_steps = 10, step_size = 2, show = True) -> float:
     if show: print('\nSTART FINDING BEST LR\n')
     
     torch.save(model, './my_model')
     
     loss_dict:dict[float:float] = {} # map lr to loss (could just have a single counter for max improvement instead of tracking all)
-    batches = get_batches_from_dataset(training_data, batch_size, ham_percent)
+    # batches = get_batches_from_dataset(training_data, batch_size, ham_percent)
     if len(batches) > num_batches:
         batches = batches[:num_batches]
     if show: print(f'use {len(batches)} batches of {batch_size} elements')
 
     curr_lr = low_bound
     for index in range(num_steps): # go through the  the lr's exponentially
+        print('progress: ', end='') # start progress bar
+
         # FIND THE LOSS BEFORE
         current_loss = find_loss(model, criterion, training_data, batches)
 
@@ -67,6 +69,11 @@ def find_best_lr(model, criterion, training_data:torch.utils.data.Subset, ham_pe
             optimizer.zero_grad() # prevent exploding gradients
 
             new_loss += batch_loss.item() / len(batch) # add average loss for this batch into current_loss
+
+            if batch_index % max(round(len(batches)/10),1) == 0: # progress bar (prevent /0 error)
+                print('[]', end='')
+
+        print() # end progress bar
 
         new_loss /= len(batches)
 
@@ -100,7 +107,9 @@ def main():
     rnn = torch.load('./my_model', weights_only = False)
     criterion = nn.NLLLoss(weight = torch.tensor(class_weights))
 
-    print(find_best_lr(rnn, criterion, train_set, 0.25))
+    batches = get_batches_from_dataset(train_set, 64, 0.25)
+
+    print(find_best_lr(rnn, criterion, train_set, 0.25, batches))
 
 if __name__ == "__main__":
     main()

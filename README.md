@@ -1,23 +1,10 @@
 # To Do
 - Retrain RNN to make better
     - Increase model complexity, more nodes/layers now that CUDA allows faster training
-    - ~~Fix loss plateaus~~
-        - ~~Implement variable learning rates when loss doesn't decrease a certain amount over some epochs~~
-    - ~~Fix disappearing gradients~~
-        - ~~Leaky ReLU~~
-        - ~~Weight initialization~~
-            - ~~Automatically done by Pytorch~~
-        - ~~Gradient clipping/batch normalization~~
-            - ~~Already doing L2 regularization~~
-        - Long Short Term Memory (LSTM)
-            - Don't really wanna switch up the model structure
+- Check out Long Short Term Memory (LSTM)/GRU/transformers for a future project
+    - Don't really wanna switch up the model structure for this one now
 
-- ~~Look at different criteria for testing (validation loss, precision/recall/f1 score?) and test more often (within the training loop every couple epochs?)~~  
-    - ~~Graph the testing score over time and show with training loss? Could help against overfitting~~
-
-- ~~Added GPU capability~~
-
-- Add project to website/resume  
+- Add project to website  
 - Allow bot to pm mods or kick spammers  
 
 <br>
@@ -36,10 +23,12 @@ https://discord.com/oauth2/authorize?client_id=1370818702810939463&permissions=1
 # Cool Features
 Since most messages are inherently NOT spam, the dataset available to train on in heavily imbalanced, requiring some 
 special techniques to train well. One example is having an increased cost for missing spam, encouraging the network to guess spam more often. Additionally, selecting batches to have a higher proportion of spam messages helps decrease imbalance at the cost of wasting 
-some data.
+some data. Another example is using different metrics for testing, such as precision (out of those the model guessed spam, how many were right), recall (out of all of the spam, how many did the model guess), and f1 score (a mix of both) to get accurate information about how well the model did.
 
 Another problem I encountered was loss plateaus, where the network would reach a certain point and stop improving. One way I found to 
 deal with this was by creating a variable learning rate test that looks for the optimal learning rate whenever I encoutered a lack of significant progress over a certain amound of time.
+
+An additional obstacle was when the model would occasionally zero-out all the gradients due to the ReLU layers turning all negative values into 0, leading the model to get stuck if there was an unlucky initialization or it stumbled into a local minimum where it output all 0's. By using leaky ReLU (where negative values are made much smaller, but not fully 0) instead of traditional ReLU, I was able to prevent the disappearing gradients.
 
 # Sections of the Code
 ## Recursive Neural Network
