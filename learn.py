@@ -195,10 +195,10 @@ def main():
         # if making final adjustments to a model, use the custom dynamic lr param
         if fine_adjustment:
             num_epoch = 40
-            target_loss = 0.03
+            target_loss = 0.01
             num_batches = 8
-            low_bound = 0.001*2**-6
-            num_steps = 11
+            low_bound = 0.001*2**-4
+            num_steps = 9
             epoch_per_dynamic_lr = 1
             target_progress_per_epoch = 1.0 # forces dynamic lr each epoch, regardless of improvement
             
@@ -209,7 +209,7 @@ def main():
         else:
             train(rnn, train_set, test_set, ham_percent, criterion=criterion)
 
-    if test_model: test(rnn, test_set, all_data.labels_unique)
+    if test_model: test(rnn, test_set, all_data.labels_unique, show_graph=False)
 
 if __name__ == "__main__":
     main()
