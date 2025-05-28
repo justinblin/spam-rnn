@@ -48,6 +48,8 @@ def train(rnn, training_data:torch.utils.data.Subset, testing_data:torch.utils.d
 
         # go thru each batch
         for batch_index, batch in enumerate(batches):
+            num_spam = 0 # troubleshooting for outlier batches with huge loss
+
             batch_loss = 0 # total loss for this batch
             # go thru each tensor in this batch
             for curr_elem in batch:
@@ -56,6 +58,9 @@ def train(rnn, training_data:torch.utils.data.Subset, testing_data:torch.utils.d
                 output = rnn(name_tensor) # tensor that's outputted
                 loss = criterion(output, label_tensor)
                 batch_loss += loss
+
+                if label == 'spam': # troubleshooting for outlier batches with huge loss
+                    num_spam += 1
 
             # run back propogation
             batch_loss.backward() # find out how much to change each weight/bias
@@ -67,7 +72,11 @@ def train(rnn, training_data:torch.utils.data.Subset, testing_data:torch.utils.d
 
             # show progress (10 per epoch)
             if batch_index % max(round(len(batches)/10),1) == 0:
-                print(f'{(int)(batch_index/len(batches)*100)}% complete, loss for current batch: {batch_loss.item() / len(batch)}')
+                print(f'{(int)(batch_index/len(batches)*100)}% complete, loss for current batch: {batch_loss.item() / len(batch)}, {num_spam}/{batch_size} spam')
+
+            # troubleshooting for outlier batches with huge loss
+            if batch_loss.item() / len(batch) > 0.05:
+                print(f'abnormal batch {batch_index} loss: {batch_loss.item() / len(batch)}, {num_spam}/{batch_size} spam, batch = {batch}')
 
         # log the current learning rate
         learning_rates.append(learning_rate)
@@ -195,10 +204,10 @@ def main():
         # if making final adjustments to a model, use the custom dynamic lr param
         if fine_adjustment:
             num_epoch = 40
-            target_loss = 0.01
+            target_loss = 0.
             num_batches = 8
             low_bound = 0.001*2**-4
-            num_steps = 9
+            num_steps = 6
             epoch_per_dynamic_lr = 1
             target_progress_per_epoch = 1.0 # forces dynamic lr each epoch, regardless of improvement
             
