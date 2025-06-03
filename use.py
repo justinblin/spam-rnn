@@ -29,9 +29,12 @@ def main():
     rnn.to(device)
     print(rnn)
 
+    with open('best_threshold.txt', 'r') as file:
+        best_threshold = float(file.read())
+
     # use the model
     example_data = "GENT! We are trying to contact you. Last weekends draw shows that you won a �1000 prize GUARANTEED. Call 09064012160. Claim Code K52. Valid 12hrs only. 150ppm"
-    guess, guess_index = use(rnn, example_data, labels_unique)
+    guess, guess_index = use(rnn, example_data, labels_unique, threshold=best_threshold)
     print(f'My RNN guessed "{example_data}" is {guess}')
 
 if __name__ == "__main__":

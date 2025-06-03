@@ -22,19 +22,16 @@ learning_rates = [0.064, 0.064, 0.064, 0.008, 0.008, 0.008, 0.008, 0.008, 0.008,
 
 # PRE TUNING:
 
-# tensor([[0.8094, 0.0709],
-#         [0.0561, 0.0637]], device='cuda:0')
-# 0.8730942010879517% correct
-# precision: 0.5318351984024048
-# recall: 0.47333335876464844
-# f1 score: 0.5008818450878711
-# TRAINING METRICS:
-# tensor([[0.6139, 0.1525],
-#         [0.0452, 0.1883]], device='cuda:0')
-# 0.8022759556770325% correct
-# precision: 0.8063337206840515
-# recall: 0.5525876879692078
-# f1 score: 0.6557702065875689
+# tensor([[0.8100, 0.0654],
+#         [0.0557, 0.0690]], device='cuda:0')
+# 0.878923773765564% correct
+# precision: 0.5532373785972595
+# recall: 0.5133511424064636
+# f1 score: 0.5325484659399762
+
+# AFTER TUNING:
+
+
 
 # Training f1 better than testing f1 (0.65 vs 0.5)
 # Training precision (0.8) consistantly higher than recall (0.55) (around 0.1 above and below)

@@ -24,6 +24,9 @@ labels_unique = ['ham', 'spam']
 rnn = torch.load('./my_model', weights_only = False)
 rnn.to(device)
 
+with open('best_threshold.txt', 'r') as file:
+    best_threshold = float(file.read())
+
 @client.event
 async def on_ready():
     print(f'We logged in as {client.user}')
@@ -32,7 +35,7 @@ async def on_ready():
 async def on_message(message:discord.Message):
     if message.author != client.user:
         print(f'Seen a message: {message.content}')
-        guess, guess_index = use(rnn, message.content, labels_unique)
+        guess, guess_index = use(rnn, message.content, labels_unique, threshold=best_threshold)
         print(f'This seems like {guess}')
         if guess == 'spam':
             await message.channel.send('This seems like spam!')

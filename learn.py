@@ -167,34 +167,35 @@ def train(rnn, training_data:torch.utils.data.Subset, testing_data:torch.utils.d
     return train_metrics, test_metrics, learning_rates
 
 # TUNE THE THRESHOLD FOR SPAM
-def threshold_tuner(rnn:MyRNN_4x_Linear_LeakyReLU, training_data:torch.utils.data.Subset) -> float:
-    rnn.eval()
-    val_targets = []
-    val_probs = []
+def threshold_tuner(rnn:MyRNN_4x_Linear_LeakyReLU, training_data:torch.utils.data.Subset, lower_bound:float, 
+                    upper_bound:float, num_steps:int) -> float:
+    """
+    lower_bound and upper_bound are both INCLUSIVE
+    """
 
-    print(f'\nStart tuning\n')
+    step_size:float = round((upper_bound-lower_bound)/(num_steps-1), 4)
+    best_f1 = 0
+    best_threshold = 0
 
-    with torch.no_grad():
-        for curr_example in training_data:
-            val_targets.append(curr_example[0].cpu().item())
-            probs = rnn.forward(curr_example[1])
-            val_probs.append(round(math.e ** probs.cpu().tolist()[0][1], 4))
+    cur_threshold = lower_bound
+    while cur_threshold <= upper_bound:
+        cur_f1 = test(rnn, training_data, training_data.dataset.labels_unique, show_graph=False, threshold=cur_threshold, print_metrics=False)[2]
+        print(f'F1 for threshold {cur_threshold}: {cur_f1}')
+        if cur_f1 > best_f1:
+            best_threshold = cur_threshold
+            best_f1 = cur_f1
 
-    precision, recall, thresholds = precision_recall_curve(
-        np.array(val_targets), 
-        np.array(val_probs)
-    )
-    f1_scores = 2 * (precision * recall) / (precision + recall)
-    optimal_threshold = thresholds[np.argmax(f1_scores)]
-    print(f"Optimal F1 threshold: {optimal_threshold}")
-    return optimal_threshold
+        cur_threshold = round(cur_threshold+step_size, 4)
 
-    # for cur_threshold in range(0.1, 1, 0.1):
-    #     pass
+    # save the threshold so it can be used later
+    with open('best_threshold.txt', 'w') as file:
+        file.write(str(best_threshold))
+
+    return best_threshold
 
 # TEST NEURAL NETWORK
-def test(rnn, testing_data:MyDataset, classes:list[str], show_graph:bool = True, threshold = 0.5):
-    print(f'\nStart testing on {len(testing_data)} examples\n')
+def test(rnn, testing_data:MyDataset, classes:list[str], show_graph:bool = True, threshold = 0.5, print_metrics = True):
+    print(f'\nStart testing on {len(testing_data)} examples with threshold {threshold}\n')
 
     confusion_matrix = torch.zeros(len(classes), len(classes))
 
@@ -210,7 +211,7 @@ def test(rnn, testing_data:MyDataset, classes:list[str], show_graph:bool = True,
             guess, guess_index = postprocess.label_from_output(output, classes, threshold) # the guess and index of the guess
 
             if index % max(round(len(testing_data)/10),1) == 0: # print 10 outputs (max prevent /0 error)
-                print(f"testcase index: {index}, guess: {str(guess)}, guess_idx: {str(guess_index)}, label: {str(label)}, label_idx: {str(label_index)}")
+                if print_metrics: print(f"testcase index: {index}, guess: {str(guess)}, guess_idx: {str(guess_index)}, label: {str(label)}, label_idx: {str(label_index)}")
 
             confusion_matrix[guess_index][label_index] += 1
 
@@ -223,11 +224,12 @@ def test(rnn, testing_data:MyDataset, classes:list[str], show_graph:bool = True,
     recall = float(confusion_matrix[1][1]/(confusion_matrix[0][1]+confusion_matrix[1][1])) # AKA of all the spam, how many did you guess right
     f1_score = 2*precision*recall/(precision+recall)
 
-    print(confusion_matrix)
-    print(f'{percent_correct}% correct')
-    print(f'precision: {precision}')
-    print(f'recall: {recall}')
-    print(f'f1 score: {f1_score}')
+    if print_metrics:
+        print(confusion_matrix)
+        print(f'{percent_correct}% correct')
+        print(f'precision: {precision}')
+        print(f'recall: {recall}')
+        print(f'f1 score: {f1_score}')
 
     # plot the confusion matrix
     if show_graph:
@@ -262,9 +264,9 @@ def main():
     train_set, test_set, extra_set = torch.utils.data.random_split(all_data, [.8, .2, .0], generator=torch.Generator(device=device))
 
     # CREATE/TRAIN NN
-    from_scratch:bool = True # use a new model OR keep a previous model
+    from_scratch:bool = False # use a new model OR keep a previous model
 
-    train_model:bool = True
+    train_model:bool = False
     fine_adjustment:bool = False # make big steps OR fine adjustments
 
     do_tuning:bool = True
@@ -301,10 +303,12 @@ def main():
         else:
             train(rnn, train_set, test_set, ham_percent, criterion=criterion)
 
-    if do_tuning: best_threshold = threshold_tuner(rnn, train_set)
+    if do_tuning: best_threshold = threshold_tuner(rnn, train_set, 0.1, 0.9, 5)
     else: best_threshold = 0.5
 
-    if test_model: test(rnn, test_set, all_data.labels_unique, show_graph=False, threshold=best_threshold)
+    if test_model:
+        test(rnn, test_set, all_data.labels_unique, show_graph=False, threshold=best_threshold)
+        # test(rnn, test_set, all_data.labels_unique, show_graph=False, threshold=0.5)
 
 if __name__ == "__main__":
     main()

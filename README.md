@@ -1,11 +1,16 @@
 # To Do
 - Retrain RNN to make better
-    - Post-training threshold tuning?
-    - Check training f1 to figure out what's going wrong
+    - Post-training threshold tuning
+    - Figure out what's going wrong with testing f1
+        - Check abnormal batches
+        - Check training f1
+            - Overfitting?
+                - Make model simpler
+                - Add dropout layer
+                - Add weight decay in optimizer
 - Check out Long Short Term Memory (LSTM)/GRU/transformers for a future project
     - Don't really wanna switch up the model structure for this one now
 
-- Add project to website  
 - Allow bot to pm mods or kick spammers  
 
 <br>
