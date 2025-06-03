@@ -22,8 +22,6 @@ def train(rnn, training_data:torch.utils.data.Subset, testing_data:torch.utils.d
           num_batches:int = 8, low_bound:float = 0.001, num_steps:int = 10, print_outlier_batches=False) -> tuple[list[float]]:
     # track loss over time
     train_metrics:tuple[list[float]] = ([],[],[],[],[]) # tuple of lists for loss, accuracy, precision, recall, and f1
-    confusion_matrix = torch.zeros(len(training_data.dataset.labels_unique), len(training_data.dataset.labels_unique))
-    percent_correct:float = 0
     test_metrics:tuple[list[float]] = ([],[],[],[],[])
     learning_rates = []
     abnormal_batches:list[list[int]] = []
@@ -51,6 +49,7 @@ def train(rnn, training_data:torch.utils.data.Subset, testing_data:torch.utils.d
             # momentum uses previous steps in the current step, faster training by reducing oscillation
 
         current_loss = 0 # reset loss so it doesn't build up in the tracking
+        confusion_matrix = torch.zeros(len(training_data.dataset.labels_unique), len(training_data.dataset.labels_unique))
 
         abnormal_batches.append([])
 
@@ -74,8 +73,6 @@ def train(rnn, training_data:torch.utils.data.Subset, testing_data:torch.utils.d
                 label_index = training_data.dataset.labels_unique.index(label)
                 guess, guess_index = postprocess.label_from_output(output, training_data.dataset.labels_unique)
                 confusion_matrix[guess_index][label_index] += 1
-                if guess_index == label_index:
-                    percent_correct += 1
 
             # run back propogation
             batch_loss.backward() # find out how much to change each weight/bias
@@ -114,7 +111,7 @@ def train(rnn, training_data:torch.utils.data.Subset, testing_data:torch.utils.d
         # get testing metrics
         if graph_total > 0:
             confusion_matrix /= graph_total
-        percent_correct = (percent_correct*100)/len(testing_data)
+        percent_correct = float(confusion_matrix[0][0]+confusion_matrix[1][1])
         precision = float(confusion_matrix[1][1]/sum(confusion_matrix[1])) # AKA when you guess spam, how many were right
         recall = float(confusion_matrix[1][1]/(confusion_matrix[0][1]+confusion_matrix[1][1])) # AKA of all the spam, how many did you guess right
         f1_score = 2*precision*recall/(precision+recall)
@@ -192,12 +189,14 @@ def threshold_tuner(rnn:MyRNN_4x_Linear_LeakyReLU, training_data:torch.utils.dat
     print(f"Optimal F1 threshold: {optimal_threshold}")
     return optimal_threshold
 
+    # for cur_threshold in range(0.1, 1, 0.1):
+    #     pass
+
 # TEST NEURAL NETWORK
 def test(rnn, testing_data:MyDataset, classes:list[str], show_graph:bool = True, threshold = 0.5):
     print(f'\nStart testing on {len(testing_data)} examples\n')
 
     confusion_matrix = torch.zeros(len(classes), len(classes))
-    percent_correct = 0
 
     rnn.eval() # turn on eval flag
     with torch.no_grad(): # don't record gradients
@@ -214,14 +213,12 @@ def test(rnn, testing_data:MyDataset, classes:list[str], show_graph:bool = True,
                 print(f"testcase index: {index}, guess: {str(guess)}, guess_idx: {str(guess_index)}, label: {str(label)}, label_idx: {str(label_index)}")
 
             confusion_matrix[guess_index][label_index] += 1
-            if guess_index == label_index:
-                percent_correct += 1
 
     # turn the total count into percentage (aka normalize)
     graph_total = confusion_matrix.sum()
     if graph_total > 0:
         confusion_matrix /= graph_total
-    percent_correct = (percent_correct*100)/len(testing_data)
+    percent_correct = float(confusion_matrix[0][0]+confusion_matrix[1][1])
     precision = float(confusion_matrix[1][1]/sum(confusion_matrix[1])) # AKA when you guess spam, how many were right
     recall = float(confusion_matrix[1][1]/(confusion_matrix[0][1]+confusion_matrix[1][1])) # AKA of all the spam, how many did you guess right
     f1_score = 2*precision*recall/(precision+recall)
@@ -265,10 +262,10 @@ def main():
     train_set, test_set, extra_set = torch.utils.data.random_split(all_data, [.8, .2, .0], generator=torch.Generator(device=device))
 
     # CREATE/TRAIN NN
-    from_scratch:bool = False # use a new model OR keep a previous model
+    from_scratch:bool = True # use a new model OR keep a previous model
 
     train_model:bool = True
-    fine_adjustment:bool = True # make big steps OR fine adjustments
+    fine_adjustment:bool = False # make big steps OR fine adjustments
 
     do_tuning:bool = True
     
@@ -283,8 +280,8 @@ def main():
     rnn.to(device)
     print(rnn)
 
-    criterion = nn.NLLLoss(weight = torch.tensor([1., 10.]))
-    ham_percent = 0.075
+    criterion = nn.NLLLoss(weight = torch.tensor([1., 2.]))
+    ham_percent = 0.3
 
     if train_model:
         # if making final adjustments to a model, use the custom dynamic lr param
