@@ -21,8 +21,10 @@ def train(rnn, training_data:torch.utils.data.Subset, testing_data:torch.utils.d
           criterion = nn.NLLLoss(), show_graph:bool = True, epoch_per_dynamic_lr:int = 3, target_progress_per_epoch:float=0.03, 
           num_batches:int = 8, low_bound:float = 0.001, num_steps:int = 10, print_outlier_batches=False) -> tuple[list[float]]:
     # track loss over time
-    train_losses = []
-    test_metrics:tuple[list[float]] = ([],[],[],[],[]) # tuple of lists for loss, accuracy, precision, recall, and f1
+    train_metrics:tuple[list[float]] = ([],[],[],[],[]) # tuple of lists for loss, accuracy, precision, recall, and f1
+    confusion_matrix = torch.zeros(len(training_data.dataset.labels_unique), len(training_data.dataset.labels_unique))
+    percent_correct:float = 0
+    test_metrics:tuple[list[float]] = ([],[],[],[],[])
     learning_rates = []
     abnormal_batches:list[list[int]] = []
 
@@ -39,7 +41,7 @@ def train(rnn, training_data:torch.utils.data.Subset, testing_data:torch.utils.d
         if epoch_per_dynamic_lr != 0 and epoch_index % epoch_per_dynamic_lr == 0:
             # exceptions for first and second activations since plateau detection needs at least 2 points
             if epoch_index == 0 or epoch_index == epoch_per_dynamic_lr or \
-            train_losses[-1] > train_losses[-1-epoch_per_dynamic_lr]*(1 - target_progress_per_epoch*epoch_per_dynamic_lr):
+            train_metrics[0][-1] > train_metrics[0][-1-epoch_per_dynamic_lr]*(1 - target_progress_per_epoch*epoch_per_dynamic_lr):
                 learning_rate = find_best_lr(rnn, criterion, training_data, ham_percent, batches, batch_size=batch_size, 
                                              num_batches=num_batches, low_bound=low_bound, num_steps=num_steps)
                 
@@ -67,6 +69,13 @@ def train(rnn, training_data:torch.utils.data.Subset, testing_data:torch.utils.d
 
                 if label == 'spam': # troubleshooting for outlier batches with huge loss
                     num_spam += 1
+
+                # get metrics on the training data
+                label_index = training_data.dataset.labels_unique.index(label)
+                guess, guess_index = postprocess.label_from_output(output, training_data.dataset.labels_unique)
+                confusion_matrix[guess_index][label_index] += 1
+                if guess_index == label_index:
+                    percent_correct += 1
 
             # run back propogation
             batch_loss.backward() # find out how much to change each weight/bias
@@ -100,8 +109,27 @@ def train(rnn, training_data:torch.utils.data.Subset, testing_data:torch.utils.d
 
         # log the current training loss
         current_loss /= len(batches)
-        train_losses.append(current_loss)
-        print(f'\nFINISH EPOCH {epoch_index}: training average batch loss = {train_losses[-1]}, testing loss = {test_metrics[0][-1]}\n')
+        train_metrics[0].append(current_loss)
+        graph_total = confusion_matrix.sum()
+        # get testing metrics
+        if graph_total > 0:
+            confusion_matrix /= graph_total
+        percent_correct = (percent_correct*100)/len(testing_data)
+        precision = float(confusion_matrix[1][1]/sum(confusion_matrix[1])) # AKA when you guess spam, how many were right
+        recall = float(confusion_matrix[1][1]/(confusion_matrix[0][1]+confusion_matrix[1][1])) # AKA of all the spam, how many did you guess right
+        f1_score = 2*precision*recall/(precision+recall)
+        train_metrics[1].append(percent_correct)
+        train_metrics[2].append(precision)
+        train_metrics[3].append(recall)
+        train_metrics[4].append(f1_score)
+
+        # print training metrics and loss
+        print(f'\nTRAINING METRICS:\n{confusion_matrix}')
+        print(f'{percent_correct}% correct')
+        print(f'precision: {precision}')
+        print(f'recall: {recall}')
+        print(f'f1 score: {f1_score}')
+        print(f'\nFINISH EPOCH {epoch_index}: training average batch loss = {train_metrics[0][-1]}, testing loss = {test_metrics[0][-1]}\n')
 
         # cut early if you reach the goal
         if test_metrics[0][-1] < target_loss:
@@ -110,24 +138,36 @@ def train(rnn, training_data:torch.utils.data.Subset, testing_data:torch.utils.d
     # show training results
     if show_graph:
         plt.figure()
-        plt.plot(train_losses)
+        # plot all the training metrics
+        for i in range(len(train_metrics)):
+            if i != 1 and i != 2 and i != 3:
+                plt.plot(train_metrics[i])
+
+        # plot all the testing metrics
         for i in range(len(test_metrics)):
             if i != 1 and i != 2 and i != 3:
                 plt.plot(test_metrics[i])
+
+        # plot all the learning rates
         plt.plot(learning_rates)
-        plt.legend(['train loss', 'test loss', 
+
+        plt.legend(['train loss', 
+                    # 'train accuracy', 'train precision', 'train recall',
+                    'train f1',
+                    'test loss', 
                     # 'test accuracy', 'test precision', 'test recall', 
-                    'test f1','learning rates'])
+                    'test f1',
+                    'learning rates'])
         plt.show()
 
     if print_outlier_batches: # ONLY FOR FINE TUNING
         with open("abnormal_batches.txt", "w") as f:
             f.write(f'batches = {abnormal_batches}')
-    print(f'train_losses = {train_losses}')
+    print(f'train_metrics = {train_metrics}')
     print(f'test_metrics = {test_metrics}')
     print(f'learning_rates = {learning_rates}')
     torch.save(rnn, "./my_model")
-    return train_losses, test_metrics, learning_rates
+    return train_metrics, test_metrics, learning_rates
 
 # TUNE THE THRESHOLD FOR SPAM
 def threshold_tuner(rnn:MyRNN_4x_Linear_LeakyReLU, training_data:torch.utils.data.Subset) -> float:

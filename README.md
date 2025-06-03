@@ -1,6 +1,7 @@
 # To Do
 - Retrain RNN to make better
     - Post-training threshold tuning?
+    - Check training f1 to figure out what's going wrong
 - Check out Long Short Term Memory (LSTM)/GRU/transformers for a future project
     - Don't really wanna switch up the model structure for this one now
 
