@@ -12,12 +12,12 @@ import math
 from dataset import MyDataset, get_batches_from_dataset
 import preprocess
 import postprocess
-from rnn import MyRNN, MyRNN_4x_Linear_LeakyReLU
+from rnn import MyRNN, MyRNN_4x_Linear_LeakyReLU, MyRNN_Mini_Boi
 from learning_rate_finder import find_best_lr, find_loss
 
 # train neural network
-def train(rnn, training_data:torch.utils.data.Subset, testing_data:torch.utils.data.Subset, ham_percent:float, 
-          num_epoch:int = 20, batch_size:int = 64, target_loss:float = 0.08, learning_rate:float = 0.064, 
+def train(rnn, training_data:torch.utils.data.Subset, validating_data:torch.utils.data.Subset, testing_data:torch.utils.data.Subset, 
+          ham_percent:float, num_epoch:int = 20, batch_size:int = 64, target_loss:float = 0.08, learning_rate:float = 0.064, 
           criterion = nn.NLLLoss(), show_graph:bool = True, epoch_per_dynamic_lr:int = 3, target_progress_per_epoch:float=0.03, 
           num_batches:int = 8, low_bound:float = 0.001, num_steps:int = 10, print_outlier_batches=False) -> tuple[list[float]]:
     # track loss over time
@@ -32,24 +32,24 @@ def train(rnn, training_data:torch.utils.data.Subset, testing_data:torch.utils.d
     for epoch_index in range(num_epoch):
         rnn.train() # flag that you're starting to train now (redo it each epoch bcs testing makes it go away)
 
-        batches = get_batches_from_dataset(training_data, batch_size, ham_percent) # use the same batches for dynamic lr as training
-
         # look for a new lr if there's a loss plateau
         # check the loss every 3 epochs (default), if it isn't >=10% (default) better than the last time, find a new lr
         if epoch_per_dynamic_lr != 0 and epoch_index % epoch_per_dynamic_lr == 0:
             # exceptions for first and second activations since plateau detection needs at least 2 points
             if epoch_index == 0 or epoch_index == epoch_per_dynamic_lr or \
             train_metrics[0][-1] > train_metrics[0][-1-epoch_per_dynamic_lr]*(1 - target_progress_per_epoch*epoch_per_dynamic_lr):
-                learning_rate = find_best_lr(rnn, criterion, training_data, ham_percent, batches, batch_size=batch_size, 
+                learning_rate = find_best_lr(rnn, criterion, validating_data, ham_percent, batch_size=batch_size, 
                                              num_batches=num_batches, low_bound=low_bound, num_steps=num_steps)
                 
         print(f'start epoch {epoch_index}, learning rate: {learning_rate}')
 
-        optimizer = torch.optim.SGD(rnn.parameters(), lr = learning_rate, momentum = 0.5) # stochastic gradient descent
+        optimizer = torch.optim.SGD(rnn.parameters(), lr = learning_rate, momentum = 0.5, weight_decay=10**-3) # stochastic gradient descent
             # momentum uses previous steps in the current step, faster training by reducing oscillation
 
         current_loss = 0 # reset loss so it doesn't build up in the tracking
         confusion_matrix = torch.zeros(len(training_data.dataset.labels_unique), len(training_data.dataset.labels_unique))
+
+        batches = get_batches_from_dataset(training_data, batch_size, ham_percent) # DO NOT use the same batches for dynamic lr as training
 
         abnormal_batches.append([])
 
@@ -114,7 +114,7 @@ def train(rnn, training_data:torch.utils.data.Subset, testing_data:torch.utils.d
         percent_correct = float(confusion_matrix[0][0]+confusion_matrix[1][1])
         precision = float(confusion_matrix[1][1]/sum(confusion_matrix[1])) # AKA when you guess spam, how many were right
         recall = float(confusion_matrix[1][1]/(confusion_matrix[0][1]+confusion_matrix[1][1])) # AKA of all the spam, how many did you guess right
-        f1_score = 2*precision*recall/(precision+recall)
+        f1_score = 2*precision*recall/(precision+recall) if precision+recall!=0 else 0
         train_metrics[1].append(percent_correct)
         train_metrics[2].append(precision)
         train_metrics[3].append(recall)
@@ -167,7 +167,7 @@ def train(rnn, training_data:torch.utils.data.Subset, testing_data:torch.utils.d
     return train_metrics, test_metrics, learning_rates
 
 # TUNE THE THRESHOLD FOR SPAM
-def threshold_tuner(rnn:MyRNN_4x_Linear_LeakyReLU, training_data:torch.utils.data.Subset, lower_bound:float, 
+def threshold_tuner(rnn, validation_data:torch.utils.data.Subset, lower_bound:float, 
                     upper_bound:float, num_steps:int) -> float:
     """
     lower_bound and upper_bound are both INCLUSIVE
@@ -179,7 +179,7 @@ def threshold_tuner(rnn:MyRNN_4x_Linear_LeakyReLU, training_data:torch.utils.dat
 
     cur_threshold = lower_bound
     while cur_threshold <= upper_bound:
-        cur_f1 = test(rnn, training_data, training_data.dataset.labels_unique, show_graph=False, threshold=cur_threshold, print_metrics=False)[2]
+        cur_f1 = test(rnn, validation_data, validation_data.dataset.labels_unique, show_graph=False, threshold=cur_threshold, print_metrics=False)[2]
         print(f'F1 for threshold {cur_threshold}: {cur_f1}')
         if cur_f1 > best_f1:
             best_threshold = cur_threshold
@@ -222,7 +222,7 @@ def test(rnn, testing_data:MyDataset, classes:list[str], show_graph:bool = True,
     percent_correct = float(confusion_matrix[0][0]+confusion_matrix[1][1])
     precision = float(confusion_matrix[1][1]/sum(confusion_matrix[1])) # AKA when you guess spam, how many were right
     recall = float(confusion_matrix[1][1]/(confusion_matrix[0][1]+confusion_matrix[1][1])) # AKA of all the spam, how many did you guess right
-    f1_score = 2*precision*recall/(precision+recall)
+    f1_score = 2*precision*recall/(precision+recall) if precision+recall!=0 else 0
 
     if print_metrics:
         print(confusion_matrix)
@@ -261,12 +261,12 @@ def main():
 
     # SETUP DATASET
     all_data = MyDataset([',', '\t'], ['data/kaggle spam.csv', 'data/UC Irvine collection/SMSSpamCollection']) # 11147 total testcases
-    train_set, test_set, extra_set = torch.utils.data.random_split(all_data, [.8, .2, .0], generator=torch.Generator(device=device))
+    train_set, validation_set, test_set = torch.utils.data.random_split(all_data, [.6, .2, .2], generator=torch.Generator(device=device))
 
     # CREATE/TRAIN NN
     from_scratch:bool = False # use a new model OR keep a previous model
 
-    train_model:bool = False
+    train_model:bool = True
     fine_adjustment:bool = False # make big steps OR fine adjustments
 
     do_tuning:bool = True
@@ -275,14 +275,14 @@ def main():
 
     # train from scratch or load a previous pretrained model
     if from_scratch:
-        rnn = MyRNN_4x_Linear_LeakyReLU(len(preprocess.allowed_char), 750, len(all_data.labels_unique))
+        rnn = MyRNN_Mini_Boi(len(preprocess.allowed_char), 500, len(all_data.labels_unique))
     else:
         rnn = torch.load('./my_model', weights_only = False)
 
     rnn.to(device)
     print(rnn)
 
-    criterion = nn.NLLLoss(weight = torch.tensor([1., 2.]))
+    criterion = nn.NLLLoss(weight = torch.tensor([1., 4.]))
     ham_percent = 0.3
 
     if train_model:
@@ -296,14 +296,14 @@ def main():
             epoch_per_dynamic_lr = 1
             target_progress_per_epoch = 1.0 # forces dynamic lr each epoch, regardless of improvement
             
-            train(rnn, train_set, test_set, ham_percent, num_epoch=num_epoch, target_loss=target_loss,
+            train(rnn, train_set, validation_set, test_set, ham_percent, num_epoch=num_epoch, target_loss=target_loss,
                   criterion=criterion, epoch_per_dynamic_lr=epoch_per_dynamic_lr, target_progress_per_epoch=target_progress_per_epoch, 
                   num_batches=num_batches, low_bound=low_bound, num_steps=num_steps, print_outlier_batches=False)
         # if making big steps, use the defaults
         else:
-            train(rnn, train_set, test_set, ham_percent, criterion=criterion)
+            train(rnn, train_set, validation_set, test_set, ham_percent, criterion=criterion)
 
-    if do_tuning: best_threshold = threshold_tuner(rnn, train_set, 0.1, 0.9, 5)
+    if do_tuning: best_threshold = threshold_tuner(rnn, validation_set, 0.1, 0.9, 5)
     else: best_threshold = 0.5
 
     if test_model:

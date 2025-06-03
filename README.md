@@ -1,8 +1,8 @@
 # To Do
 - Retrain RNN to make better
-    - Post-training threshold tuning
+    - ~~Post-training threshold tuning~~
     - Figure out what's going wrong with testing f1
-        - Check abnormal batches
+        - ~~Check abnormal batches~~
         - Check training f1
             - Overfitting?
                 - Make model simpler
