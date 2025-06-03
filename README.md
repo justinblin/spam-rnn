@@ -1,6 +1,6 @@
 # To Do
 - Retrain RNN to make better
-    - Increase model complexity, more nodes/layers now that CUDA allows faster training
+    - Post-training threshold tuning?
 - Check out Long Short Term Memory (LSTM)/GRU/transformers for a future project
     - Don't really wanna switch up the model structure for this one now
 

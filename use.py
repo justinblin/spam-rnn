@@ -2,12 +2,12 @@ import torch
 import preprocess
 import postprocess
 
-def use(rnn, data:str, labels_unique:list[str]) -> tuple[str, int]:
+def use(rnn, data:str, labels_unique:list[str], threshold:float = 0.5) -> tuple[str, int]:
     rnn.eval()
     with torch.no_grad():
         data_tensors = preprocess.string_to_tensor(data)
         output_tensor = rnn.forward(data_tensors, show = True)
-        guess, guess_index = postprocess.label_from_output(output_tensor, labels_unique)
+        guess, guess_index = postprocess.label_from_output(output_tensor, labels_unique, threshold)
         return guess, guess_index
 
 def main():
