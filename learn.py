@@ -43,7 +43,7 @@ def train(rnn, training_data:torch.utils.data.Subset, validating_data:torch.util
                 
         print(f'start epoch {epoch_index}, learning rate: {learning_rate}')
 
-        optimizer = torch.optim.SGD(rnn.parameters(), lr = learning_rate, momentum = 0.5, weight_decay=10**-3) # stochastic gradient descent
+        optimizer = torch.optim.SGD(rnn.parameters(), lr = learning_rate, momentum = 0.5, weight_decay=0.005) # stochastic gradient descent
             # momentum uses previous steps in the current step, faster training by reducing oscillation
 
         current_loss = 0 # reset loss so it doesn't build up in the tracking
@@ -97,7 +97,7 @@ def train(rnn, training_data:torch.utils.data.Subset, validating_data:torch.util
 
         # check testing loss AND full test and add to list
         test_metrics[0].append(find_loss(rnn, criterion, testing_data, batches))
-        temp_test_metrics = test(rnn, testing_data, testing_data.dataset.labels_unique, show_graph=False)
+        temp_test_metrics = test(rnn, testing_data, show_graph=False)
         for i in range(1, len(test_metrics)):
             test_metrics[i].append(temp_test_metrics[i-1])
 
@@ -168,7 +168,7 @@ def train(rnn, training_data:torch.utils.data.Subset, validating_data:torch.util
 
 # TUNE THE THRESHOLD FOR SPAM
 def threshold_tuner(rnn, validation_data:torch.utils.data.Subset, lower_bound:float, 
-                    upper_bound:float, num_steps:int) -> float:
+                    upper_bound:float, num_steps:int, ham_percent:float) -> float:
     """
     lower_bound and upper_bound are both INCLUSIVE
     """
@@ -179,7 +179,9 @@ def threshold_tuner(rnn, validation_data:torch.utils.data.Subset, lower_bound:fl
 
     cur_threshold = lower_bound
     while cur_threshold <= upper_bound:
-        cur_f1 = test(rnn, validation_data, validation_data.dataset.labels_unique, show_graph=False, threshold=cur_threshold, print_metrics=False)[2]
+        indices_in_all_data = get_batches_from_dataset(validation_data, len(validation_data), ham_percent, num_batches=1)[0]
+        cur_f1 = test(rnn, validation_data, show_graph=False, threshold=cur_threshold, print_metrics=False, 
+                      indices_in_all_data=indices_in_all_data)[3]
         print(f'F1 for threshold {cur_threshold}: {cur_f1}')
         if cur_f1 > best_f1:
             best_threshold = cur_threshold
@@ -194,24 +196,32 @@ def threshold_tuner(rnn, validation_data:torch.utils.data.Subset, lower_bound:fl
     return best_threshold
 
 # TEST NEURAL NETWORK
-def test(rnn, testing_data:MyDataset, classes:list[str], show_graph:bool = True, threshold = 0.5, print_metrics = True):
-    print(f'\nStart testing on {len(testing_data)} examples with threshold {threshold}\n')
+def test(rnn, testing_data:torch.utils.data.Subset, show_graph:bool = True, threshold = 0.5, 
+         print_metrics = True, indices_in_all_data:list[int] = []):
+    """
+    returns accuracy, precision, recall, f1 score
+    """
+    # turn testing_data into a list of indices in all_data to allow RUS to work
+    if len(indices_in_all_data) == 0:
+        indices_in_all_data = get_batches_from_dataset(testing_data, len(testing_data), 1., num_batches=1)[0]
+
+    classes = testing_data.dataset.labels_unique
 
     confusion_matrix = torch.zeros(len(classes), len(classes))
 
+    if print_metrics: print(f'\nStart testing on {len(indices_in_all_data)} examples with threshold {threshold}\n')
+
     rnn.eval() # turn on eval flag
     with torch.no_grad(): # don't record gradients
-        for index in range(len(testing_data)): # go thru each test example
-            (label_tensor, data_tensor, label, data) = testing_data[index]
+        for index, element in enumerate(indices_in_all_data): # go thru each test example
+            (label_tensor, data_tensor, label, data) = testing_data.dataset[element]
             label_index = classes.index(label) # the index of the correct answer for this testcase
 
-            # print(data)
-            # print(all_data.data_list.index(data))
             output = rnn(data_tensor)
             guess, guess_index = postprocess.label_from_output(output, classes, threshold) # the guess and index of the guess
 
-            if index % max(round(len(testing_data)/10),1) == 0: # print 10 outputs (max prevent /0 error)
-                if print_metrics: print(f"testcase index: {index}, guess: {str(guess)}, guess_idx: {str(guess_index)}, label: {str(label)}, label_idx: {str(label_index)}")
+            if index % max(round(len(indices_in_all_data)/10),1) == 0: # print 10 outputs (max prevent /0 error)
+                if print_metrics: print(f"testcase index in all_data: {element}, guess: {str(guess)}, guess_idx: {str(guess_index)}, label: {str(label)}, label_idx: {str(label_index)}")
 
             confusion_matrix[guess_index][label_index] += 1
 
@@ -219,7 +229,7 @@ def test(rnn, testing_data:MyDataset, classes:list[str], show_graph:bool = True,
     graph_total = confusion_matrix.sum()
     if graph_total > 0:
         confusion_matrix /= graph_total
-    percent_correct = float(confusion_matrix[0][0]+confusion_matrix[1][1])
+    percent_correct = float(confusion_matrix[0][0]+confusion_matrix[1][1])*100.
     precision = float(confusion_matrix[1][1]/sum(confusion_matrix[1])) # AKA when you guess spam, how many were right
     recall = float(confusion_matrix[1][1]/(confusion_matrix[0][1]+confusion_matrix[1][1])) # AKA of all the spam, how many did you guess right
     f1_score = 2*precision*recall/(precision+recall) if precision+recall!=0 else 0
@@ -260,11 +270,13 @@ def main():
     print(device)
 
     # SETUP DATASET
-    all_data = MyDataset([',', '\t'], ['data/kaggle spam.csv', 'data/UC Irvine collection/SMSSpamCollection']) # 11147 total testcases
+    all_data = MyDataset([',', '\t', ','], 
+                         ['data/kaggle spam.csv', 'data/UC Irvine collection/SMSSpamCollection', # first 2 was 11147 total testcases
+                          'data/Mendeley Data collection/Dataset_5971.csv']) # total roughly 17000 testcases
     train_set, validation_set, test_set = torch.utils.data.random_split(all_data, [.6, .2, .2], generator=torch.Generator(device=device))
 
     # CREATE/TRAIN NN
-    from_scratch:bool = False # use a new model OR keep a previous model
+    from_scratch:bool = True # use a new model OR keep a previous model
 
     train_model:bool = True
     fine_adjustment:bool = False # make big steps OR fine adjustments
@@ -303,12 +315,13 @@ def main():
         else:
             train(rnn, train_set, validation_set, test_set, ham_percent, criterion=criterion)
 
-    if do_tuning: best_threshold = threshold_tuner(rnn, validation_set, 0.1, 0.9, 5)
+    if do_tuning: best_threshold = threshold_tuner(rnn, validation_set, lower_bound=0.1, upper_bound=0.9, 
+                                                   num_steps=17, ham_percent=1)
     else: best_threshold = 0.5
 
     if test_model:
-        test(rnn, test_set, all_data.labels_unique, show_graph=False, threshold=best_threshold)
-        # test(rnn, test_set, all_data.labels_unique, show_graph=False, threshold=0.5)
+        test(rnn, test_set, show_graph=False, threshold=best_threshold)
+        test(rnn, test_set, show_graph=False, threshold=0.5)
 
 if __name__ == "__main__":
     main()
