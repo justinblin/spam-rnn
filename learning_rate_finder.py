@@ -49,7 +49,7 @@ def find_best_lr(model, criterion, validating_data:torch.utils.data.Subset, ham_
 
 
         # DO BACK PROPOGATION AND FIND THE LOSS AFTER
-        optimizer = torch.optim.SGD(model.parameters(), lr = curr_lr, momentum = 0.5, weight_decay=0.01)
+        optimizer = torch.optim.SGD(model.parameters(), lr = curr_lr, momentum = 0.5, weight_decay=0.03)
 
         new_loss = 0 # average loss for all the batches
 

@@ -43,7 +43,7 @@ def train(rnn, training_data:torch.utils.data.Subset, validating_data:torch.util
                 
         print(f'start epoch {epoch_index}, learning rate: {learning_rate}')
 
-        optimizer = torch.optim.SGD(rnn.parameters(), lr = learning_rate, momentum = 0.5, weight_decay=0.01) # stochastic gradient descent
+        optimizer = torch.optim.SGD(rnn.parameters(), lr = learning_rate, momentum = 0.5, weight_decay=0.03) # stochastic gradient descent
             # momentum uses previous steps in the current step, faster training by reducing oscillation
 
         current_loss = 0 # reset loss so it doesn't build up in the tracking
@@ -231,8 +231,8 @@ def test(rnn, testing_data:torch.utils.data.Subset, show_graph:bool = True, thre
     if graph_total > 0:
         confusion_matrix /= graph_total
     percent_correct = float(confusion_matrix[0][0]+confusion_matrix[1][1])*100.
-    precision = float(confusion_matrix[1][1]/sum(confusion_matrix[1])) # AKA when you guess spam, how many were right
-    recall = float(confusion_matrix[1][1]/(confusion_matrix[0][1]+confusion_matrix[1][1])) # AKA of all the spam, how many did you guess right
+    precision = float(confusion_matrix[1][1]/sum(confusion_matrix[1])) if sum(confusion_matrix[1]) != 0 else 0 # AKA when you guess spam, how many were right
+    recall = float(confusion_matrix[1][1]/(confusion_matrix[0][1]+confusion_matrix[1][1])) if (confusion_matrix[0][1]+confusion_matrix[1][1]) != 0 else 0 # AKA of all the spam, how many did you guess right
     f1_score = 2*precision*recall/(precision+recall) if precision+recall!=0 else 0
 
     if print_metrics:
@@ -278,7 +278,7 @@ def main():
     train_set, validation_set, test_set = torch.utils.data.random_split(all_data, [.6, .2, .2], generator=torch.Generator(device=device))
 
     # CREATE/TRAIN NN
-    from_scratch:bool = True # use a new model OR keep a previous model
+    from_scratch:bool = False # use a new model OR keep a previous model
 
     train_model:bool = True
     fine_adjustment:bool = False # make big steps OR fine adjustments
@@ -322,8 +322,9 @@ def main():
     else: best_threshold = 0.5
 
     if test_model:
-        test(rnn, test_set, show_graph=False, threshold=best_threshold)
-        test(rnn, test_set, show_graph=False, threshold=0.5)
+        indices_in_all_data = get_batches_from_dataset(test_set, len(test_set), 1., num_batches=1)[0]
+        test(rnn, test_set, show_graph=False, threshold=best_threshold, indices_in_all_data=indices_in_all_data)
+        test(rnn, test_set, show_graph=False, threshold=0.5, indices_in_all_data=indices_in_all_data)
 
 if __name__ == "__main__":
     main()
