@@ -29,7 +29,7 @@ def find_loss(model, criterion, data_subset:torch.utils.data.Subset, batches:lis
     return current_loss
 
 def find_best_lr(model, criterion, validating_data:torch.utils.data.Subset, ham_percent:float, #batches:list[list[int]], 
-                 batch_size:int = 64, num_batches:int = 8, low_bound = 0.001, num_steps = 10, step_size = 2, show = True) -> float:
+                 optimizer_param:torch.optim.SGD, batch_size:int = 64, num_batches:int = 8, low_bound = 0.001, num_steps = 10, step_size = 2, show = True) -> float:
     if show: print('\nSTART FINDING BEST LR\n')
     
     torch.save(model, './my_model')
@@ -49,7 +49,7 @@ def find_best_lr(model, criterion, validating_data:torch.utils.data.Subset, ham_
 
 
         # DO BACK PROPOGATION AND FIND THE LOSS AFTER
-        optimizer = torch.optim.SGD(model.parameters(), lr = curr_lr, momentum = 0.5, weight_decay=0.03)
+        optimizer = optimizer_param
 
         new_loss = 0 # average loss for all the batches
 

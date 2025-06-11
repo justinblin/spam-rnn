@@ -4,11 +4,13 @@
     - Figure out what's going wrong with testing f1
         - ~~Check abnormal batches~~
         - Check training f1
-            - Overfitting?
+            - Test f1 much greater than train f1, overfitting?
                 - ~~Make model simpler~~
                 - ~~Add dropout layer~~
                 - ~~Add weight decay in optimizer~~
                 - Use more weight decay instead of dropout bcs it might be increasing precision at the cost of recall
+            - Train precision much greater than train recall
+                - Try oversampling spam?
 - Check out Long Short Term Memory (LSTM)/GRU/transformers for a future project
     - Don't really wanna switch up the model structure for this one now
 
