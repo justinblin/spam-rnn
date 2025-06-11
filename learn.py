@@ -19,7 +19,7 @@ from learning_rate_finder import find_best_lr, find_loss
 def train(rnn, training_data:torch.utils.data.Subset, validating_data:torch.utils.data.Subset, testing_data:torch.utils.data.Subset, 
           ham_percent:float, num_epoch:int = 20, batch_size:int = 64, target_loss:float = 0.08, learning_rate:float = 0.064, 
           criterion = nn.NLLLoss(), show_graph:bool = True, epoch_per_dynamic_lr:int = 3, target_progress_per_epoch:float=0.03, 
-          num_batches:int = 8, low_bound:float = 0.001, num_steps:int = 10, print_outlier_batches=False) -> tuple[list[float]]:
+          num_batches:int = 8, low_bound:float = 0.001, num_steps:int = 9, print_outlier_batches=False) -> tuple[list[float]]:
     # track loss over time
     train_metrics:tuple[list[float]] = ([],[],[],[],[]) # tuple of lists for loss, accuracy, precision, recall, and f1
     test_metrics:tuple[list[float]] = ([],[],[],[],[])
@@ -177,9 +177,10 @@ def threshold_tuner(rnn, validation_data:torch.utils.data.Subset, lower_bound:fl
     best_f1 = 0
     best_threshold = 0
 
+    indices_in_all_data = get_batches_from_dataset(validation_data, len(validation_data), ham_percent, num_batches=1)[0]
+
     cur_threshold = lower_bound
     while cur_threshold <= upper_bound:
-        indices_in_all_data = get_batches_from_dataset(validation_data, len(validation_data), ham_percent, num_batches=1)[0]
         cur_f1 = test(rnn, validation_data, show_graph=False, threshold=cur_threshold, print_metrics=False, 
                       indices_in_all_data=indices_in_all_data)[3]
         print(f'F1 for threshold {cur_threshold}: {cur_f1}')
@@ -276,7 +277,7 @@ def main():
     train_set, validation_set, test_set = torch.utils.data.random_split(all_data, [.6, .2, .2], generator=torch.Generator(device=device))
 
     # CREATE/TRAIN NN
-    from_scratch:bool = True # use a new model OR keep a previous model
+    from_scratch:bool = False # use a new model OR keep a previous model
 
     train_model:bool = True
     fine_adjustment:bool = False # make big steps OR fine adjustments
