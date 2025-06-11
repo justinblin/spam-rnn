@@ -14,10 +14,10 @@ class MyRNN_Mini_Boi(nn.Module):
         self.sequence = nn.Sequential(
             nn.Linear(hidden_size, hidden_size),
             nn.LeakyReLU(),
-            nn.Dropout(0.3),
+            nn.Dropout(0.4),
             nn.Linear(hidden_size, output_size),
             nn.LeakyReLU(),
-            nn.Dropout(0.3)
+            nn.Dropout(0.4)
         )
 
     def forward(self, line_tensor:torch.Tensor, show = False) -> torch.Tensor:

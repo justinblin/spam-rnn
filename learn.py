@@ -236,6 +236,7 @@ def test(rnn, testing_data:torch.utils.data.Subset, show_graph:bool = True, thre
     f1_score = 2*precision*recall/(precision+recall) if precision+recall!=0 else 0
 
     if print_metrics:
+        print(f'\nTESTING METRICS:')
         print(confusion_matrix)
         print(f'{percent_correct}% correct')
         print(f'precision: {precision}')
@@ -277,7 +278,7 @@ def main():
     train_set, validation_set, test_set = torch.utils.data.random_split(all_data, [.6, .2, .2], generator=torch.Generator(device=device))
 
     # CREATE/TRAIN NN
-    from_scratch:bool = False # use a new model OR keep a previous model
+    from_scratch:bool = True # use a new model OR keep a previous model
 
     train_model:bool = True
     fine_adjustment:bool = False # make big steps OR fine adjustments
@@ -288,15 +289,15 @@ def main():
 
     # train from scratch or load a previous pretrained model
     if from_scratch:
-        rnn = MyRNN_Mini_Boi(len(preprocess.allowed_char), 500, len(all_data.labels_unique))
+        rnn = MyRNN_Mini_Boi(len(preprocess.allowed_char), 256, len(all_data.labels_unique))
     else:
         rnn = torch.load('./my_model', weights_only = False)
 
     rnn.to(device)
     print(rnn)
 
-    criterion = nn.NLLLoss(weight = torch.tensor([1., 4.]))
-    ham_percent = 0.3
+    criterion = nn.NLLLoss(weight = torch.tensor([1., 5.]))
+    ham_percent = 0.2
 
     if train_model:
         # if making final adjustments to a model, use the custom dynamic lr param
