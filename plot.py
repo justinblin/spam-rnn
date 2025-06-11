@@ -49,6 +49,10 @@ learning_rates = [0.064, 0.064, 0.064, 0.008, 0.008, 0.008, 0.008, 0.008, 0.008,
 # Test precision (0.52) better than recall (0.48)
 # Train precision (0.8) way better than train recall (0.53)
 
+# 0.54 ham 0.46 spam w/ dropout and weight decay
+# 0.505 ham 0.495 spam w/ just dropout
+# 0 ham 1 spam w/ neither
+
 plt.figure()
 # plot all the training metrics
 for i in range(len(train_metrics)):

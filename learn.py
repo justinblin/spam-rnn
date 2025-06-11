@@ -43,7 +43,7 @@ def train(rnn, training_data:torch.utils.data.Subset, validating_data:torch.util
                 
         print(f'start epoch {epoch_index}, learning rate: {learning_rate}')
 
-        optimizer = torch.optim.SGD(rnn.parameters(), lr = learning_rate, momentum = 0.5, weight_decay=0.005) # stochastic gradient descent
+        optimizer = torch.optim.SGD(rnn.parameters(), lr = learning_rate, momentum = 0.5, weight_decay=0.01) # stochastic gradient descent
             # momentum uses previous steps in the current step, faster training by reducing oscillation
 
         current_loss = 0 # reset loss so it doesn't build up in the tracking
@@ -111,7 +111,7 @@ def train(rnn, training_data:torch.utils.data.Subset, validating_data:torch.util
         # get testing metrics
         if graph_total > 0:
             confusion_matrix /= graph_total
-        percent_correct = float(confusion_matrix[0][0]+confusion_matrix[1][1])
+        percent_correct = float(confusion_matrix[0][0]+confusion_matrix[1][1])*100
         precision = float(confusion_matrix[1][1]/sum(confusion_matrix[1])) # AKA when you guess spam, how many were right
         recall = float(confusion_matrix[1][1]/(confusion_matrix[0][1]+confusion_matrix[1][1])) # AKA of all the spam, how many did you guess right
         f1_score = 2*precision*recall/(precision+recall) if precision+recall!=0 else 0

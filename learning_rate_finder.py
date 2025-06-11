@@ -49,7 +49,7 @@ def find_best_lr(model, criterion, validating_data:torch.utils.data.Subset, ham_
 
 
         # DO BACK PROPOGATION AND FIND THE LOSS AFTER
-        optimizer = torch.optim.SGD(model.parameters(), lr = curr_lr, momentum = 0.5, weight_decay=0.005)
+        optimizer = torch.optim.SGD(model.parameters(), lr = curr_lr, momentum = 0.5, weight_decay=0.01)
 
         new_loss = 0 # average loss for all the batches
 
@@ -99,17 +99,18 @@ def find_best_lr(model, criterion, validating_data:torch.utils.data.Subset, ham_
     return None
 
 def main():
-    all_data = MyDataset([',', '\t'], ['data/kaggle spam.csv', 'data/UC Irvine collection/SMSSpamCollection']) # 11147 total testcases
-    train_set, validating_set, test_set = torch.utils.data.random_split(all_data, [.6, .2, .2])
+    pass
+    # all_data = MyDataset([',', '\t'], ['data/kaggle spam.csv', 'data/UC Irvine collection/SMSSpamCollection']) # 11147 total testcases
+    # train_set, validating_set, test_set = torch.utils.data.random_split(all_data, [.6, .2, .2])
     
-    class_weights:list[float] = [0.33, 0.67]
+    # class_weights:list[float] = [0.33, 0.67]
 
-    rnn = torch.load('./my_model', weights_only = False)
-    criterion = nn.NLLLoss(weight = torch.tensor(class_weights))
+    # rnn = torch.load('./my_model', weights_only = False)
+    # criterion = nn.NLLLoss(weight = torch.tensor(class_weights))
 
-    batches = get_batches_from_dataset(validating_set, 64, 0.25)
+    # batches = get_batches_from_dataset(validating_set, 64, 0.25)
 
-    print(find_best_lr(rnn, criterion, validating_set, 0.25))
+    # print(find_best_lr(rnn, criterion, validating_set, 0.25))
 
 if __name__ == "__main__":
     main()
