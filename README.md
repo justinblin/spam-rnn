@@ -10,7 +10,7 @@
                 - ~~Add weight decay in optimizer~~
                 - Use more weight decay instead of dropout bcs it might be increasing precision at the cost of recall
             - Train precision much greater than train recall
-                - Try oversampling spam?
+                - Try oversampling spam? core oversampling technique
 - Check out Long Short Term Memory (LSTM)/GRU/transformers for a future project
     - Don't really wanna switch up the model structure for this one now
 

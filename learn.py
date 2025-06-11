@@ -17,7 +17,7 @@ from learning_rate_finder import find_best_lr, find_loss
 
 # train neural network
 def train(rnn, training_data:torch.utils.data.Subset, validating_data:torch.utils.data.Subset, testing_data:torch.utils.data.Subset, 
-          ham_percent:float, num_epoch:int = 10, batch_size:int = 64, target_loss:float = 0.08, learning_rate:float = 0.064, 
+          ham_percent:float, num_epoch:int = 20, batch_size:int = 64, target_loss:float = 0.08, learning_rate:float = 0.064, 
           criterion = nn.NLLLoss(), show_graph:bool = True, epoch_per_dynamic_lr:int = 3, target_progress_per_epoch:float=0.03, 
           num_batches:int = 8, low_bound:float = 0.001, num_steps:int = 9, print_outlier_batches=False) -> tuple[list[float]]:
     # track loss over time
@@ -32,7 +32,7 @@ def train(rnn, training_data:torch.utils.data.Subset, validating_data:torch.util
     for epoch_index in range(num_epoch):
         rnn.train() # flag that you're starting to train now (redo it each epoch bcs testing makes it go away)
 
-        optimizer = torch.optim.SGD(rnn.parameters(), lr = learning_rate, momentum = 0.5, weight_decay=0.1) # stochastic gradient descent
+        optimizer = torch.optim.SGD(rnn.parameters(), lr = learning_rate, momentum = 0.5, weight_decay=0.01) # stochastic gradient descent
             # momentum uses previous steps in the current step, faster training by reducing oscillation
 
         # look for a new lr if there's a loss plateau
@@ -278,7 +278,7 @@ def main():
     train_set, validation_set, test_set = torch.utils.data.random_split(all_data, [.6, .2, .2], generator=torch.Generator(device=device))
 
     # CREATE/TRAIN NN
-    from_scratch:bool = False # use a new model OR keep a previous model
+    from_scratch:bool = True # use a new model OR keep a previous model
 
     train_model:bool = True
     fine_adjustment:bool = False # make big steps OR fine adjustments
@@ -289,7 +289,7 @@ def main():
 
     # train from scratch or load a previous pretrained model
     if from_scratch:
-        rnn = MyRNN_Mini_Boi(len(preprocess.allowed_char), 256, len(all_data.labels_unique))
+        rnn = MyRNN_Mini_Boi(len(preprocess.allowed_char), 128, len(all_data.labels_unique))
     else:
         rnn = torch.load('./my_model', weights_only = False)
 
