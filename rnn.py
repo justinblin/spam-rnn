@@ -14,23 +14,47 @@ class MyRNN_Mini_Boi(nn.Module):
         self.sequence = nn.Sequential(
             nn.Linear(hidden_size, hidden_size),
             nn.LeakyReLU(),
-            nn.Dropout(0.1),
+            nn.Dropout(0.15),
+            nn.Linear(hidden_size, hidden_size),
+            nn.LeakyReLU(),
+            nn.Dropout(0.15),
+            nn.Linear(hidden_size, hidden_size),
+            nn.LeakyReLU(),
+            nn.Dropout(0.15),
+            nn.Linear(hidden_size, hidden_size),
+            nn.LeakyReLU(),
+            nn.Dropout(0.15),
+            nn.Linear(hidden_size, hidden_size),
+            nn.LeakyReLU(),
+            nn.Dropout(0.15),
+            nn.Linear(hidden_size, hidden_size),
+            nn.LeakyReLU(),
+            nn.Dropout(0.15),
+            nn.Linear(hidden_size, hidden_size),
+            nn.LeakyReLU(),
+            nn.Dropout(0.15),
+            nn.Linear(hidden_size, hidden_size),
+            nn.LeakyReLU(),
+            nn.Dropout(0.15),
+            nn.Linear(hidden_size, hidden_size),
+            nn.LeakyReLU(),
+            nn.Dropout(0.15),
             nn.Linear(hidden_size, output_size),
             nn.LeakyReLU(),
-            nn.Dropout(0.3)
+            nn.Dropout(0.15)
         )
 
     def forward(self, line_tensor:torch.Tensor, show = False) -> torch.Tensor:
-        if show: print('forward 2x linear/dropout/leaky ReLU')
+        if show: print('forwar0.15x linear/dropout/leaky ReLU')
         rnn_out, hidden = self.rnn(line_tensor) # input to hidden layer
         output = self.sequence(hidden[0]) # does all the hidden layers
 
         if show:
-            print(output)
-            print(self.softmax(output))
+            print(f'raw output: {output}')
+            print(f'softmax output: {self.softmax(output)}')
         output = self.log_softmax(output) # does softmax and then ln so NLLLoss doesn't need it's own log (AKA faster)
             # softmax normalizes values 0-1 and sum to 1
-        if show: print(output)
+        if show: print(f'log softmax output: {output}')
 
         return output
 

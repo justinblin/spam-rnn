@@ -29,12 +29,15 @@ def find_loss(model, criterion, data_subset:torch.utils.data.Subset, batches:lis
     return current_loss
 
 def find_best_lr(model, criterion, validating_data:torch.utils.data.Subset, ham_percent:float, #batches:list[list[int]], 
-                 optimizer_param:torch.optim.SGD, batch_size:int = 64, num_batches:int = 8, low_bound = 0.001, num_steps = 10, step_size = 2, show = True) -> float:
+                 prev_lr:float, batch_size:int = 64, num_batches:int = 8, 
+                 low_bound = 0.001, num_steps = 10, step_size = 2, show = True) -> float:
     if show: print('\nSTART FINDING BEST LR\n')
     
     torch.save(model, './my_model')
     
-    loss_dict:dict[float:float] = {} # map lr to loss (could just have a single counter for max improvement instead of tracking all)
+    best_lr:float = 0
+    best_loss_improvement:float = -100
+
     batches = get_batches_from_dataset(validating_data, batch_size, ham_percent)
     if len(batches) > num_batches:
         batches = batches[:num_batches]
@@ -49,7 +52,7 @@ def find_best_lr(model, criterion, validating_data:torch.utils.data.Subset, ham_
 
 
         # DO BACK PROPOGATION AND FIND THE LOSS AFTER
-        optimizer = optimizer_param
+        optimizer = torch.optim.SGD(model.parameters(), lr = curr_lr, momentum = 0.5, weight_decay=0.05)
 
         new_loss = 0 # average loss for all the batches
 
@@ -79,7 +82,9 @@ def find_best_lr(model, criterion, validating_data:torch.utils.data.Subset, ham_
 
 
         # RECORD THE DIFFERENCE AND RESTORE THE MODEL FOR THE NEXT LR
-        loss_dict[curr_lr] = current_loss - new_loss # stick loss difference in the loss dict
+        if current_loss - new_loss > best_loss_improvement: # if the cur improvement is better than prev best, make it the best
+            best_loss_improvement = current_loss - new_loss
+            best_lr = curr_lr
 
         # restore the model
         model = torch.load('./my_model', weights_only = False)
@@ -88,29 +93,19 @@ def find_best_lr(model, criterion, validating_data:torch.utils.data.Subset, ham_
 
         curr_lr *= step_size
 
-    # return the key that had the largest loss difference (pick the largest one if ties)
-    loss_dict_list = []
-    for key, value in loss_dict.items(): # turn dict into list
-        loss_dict_list.append((key, value))
-    for index in range(len(loss_dict_list)-1, -1, -1): # go backwards thru list
-        if loss_dict_list[index][1] == max(loss_dict.values()):
-            if show: print(f'\nbest learning rate: {loss_dict_list[index][0]}\n')
-            return loss_dict_list[index][0]
-    return None
+    final_lr = (best_lr + 2*prev_lr)/3
+    print(f'Best LR before momentum: {best_lr}, after momentum: {final_lr}\n')
+    return final_lr # sorta like a momentum for lr so it doesn't change as violently
 
 def main():
-    pass
-    # all_data = MyDataset([',', '\t'], ['data/kaggle spam.csv', 'data/UC Irvine collection/SMSSpamCollection']) # 11147 total testcases
-    # train_set, validating_set, test_set = torch.utils.data.random_split(all_data, [.6, .2, .2])
+    all_data = MyDataset([',', '\t'], ['data/kaggle spam.csv', 'data/UC Irvine collection/SMSSpamCollection']) # 11147 total testcases
+    train_set, validation_set, test_set = torch.utils.data.random_split(all_data, [.6, .2, .2])
     
-    # class_weights:list[float] = [0.33, 0.67]
 
-    # rnn = torch.load('./my_model', weights_only = False)
-    # criterion = nn.NLLLoss(weight = torch.tensor(class_weights))
+    rnn = torch.load('./my_model', weights_only = False)
+    criterion = nn.NLLLoss(weight = torch.tensor([1., 5.]))
 
-    # batches = get_batches_from_dataset(validating_set, 64, 0.25)
-
-    # print(find_best_lr(rnn, criterion, validating_set, 0.25))
+    print(find_best_lr(rnn, criterion, validation_set, 0.15))
 
 if __name__ == "__main__":
     main()

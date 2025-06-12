@@ -18,7 +18,7 @@ from learning_rate_finder import find_best_lr, find_loss
 # train neural network
 def train(rnn, training_data:torch.utils.data.Subset, validating_data:torch.utils.data.Subset, testing_data:torch.utils.data.Subset, 
           ham_percent:float, num_epoch:int = 20, batch_size:int = 64, target_loss:float = 0.08, learning_rate:float = 0.064, 
-          criterion = nn.NLLLoss(), show_graph:bool = True, epoch_per_dynamic_lr:int = 3, target_progress_per_epoch:float=0.03, 
+          criterion = nn.NLLLoss(), show_graph:bool = True, epoch_per_dynamic_lr:int = 2, target_progress_per_epoch:float=0.03, 
           num_batches:int = 8, low_bound:float = 0.001, num_steps:int = 9, print_outlier_batches=False) -> tuple[list[float]]:
     # track loss over time
     train_metrics:tuple[list[float]] = ([],[],[],[],[]) # tuple of lists for loss, accuracy, precision, recall, and f1
@@ -32,19 +32,19 @@ def train(rnn, training_data:torch.utils.data.Subset, validating_data:torch.util
     for epoch_index in range(num_epoch):
         rnn.train() # flag that you're starting to train now (redo it each epoch bcs testing makes it go away)
 
-        optimizer = torch.optim.SGD(rnn.parameters(), lr = learning_rate, momentum = 0.5, weight_decay=0.01) # stochastic gradient descent
-            # momentum uses previous steps in the current step, faster training by reducing oscillation
-
         # look for a new lr if there's a loss plateau
         # check the loss every 3 epochs (default), if it isn't >=10% (default) better than the last time, find a new lr
         if epoch_per_dynamic_lr != 0 and epoch_index % epoch_per_dynamic_lr == 0:
             # exceptions for first and second activations since plateau detection needs at least 2 points
             if epoch_index == 0 or epoch_index == epoch_per_dynamic_lr or \
             train_metrics[0][-1] > train_metrics[0][-1-epoch_per_dynamic_lr]*(1 - target_progress_per_epoch*epoch_per_dynamic_lr):
-                learning_rate = find_best_lr(rnn, criterion, validating_data, ham_percent, batch_size=batch_size, 
-                                             optimizer_param=optimizer, num_batches=num_batches, low_bound=low_bound, num_steps=num_steps)
+                learning_rate = find_best_lr(rnn, criterion, validating_data, ham_percent, learning_rate, batch_size=batch_size, 
+                                             num_batches=num_batches, low_bound=low_bound, num_steps=num_steps)
                 
-        print(f'start epoch {epoch_index}, learning rate: {learning_rate}')
+        optimizer = torch.optim.SGD(rnn.parameters(), lr = learning_rate, momentum = 0.5, weight_decay=0.05) # stochastic gradient descent
+            # momentum uses previous steps in the current step, faster training by reducing oscillation
+                
+        print(f'Start epoch {epoch_index}, learning rate: {learning_rate}')
 
         current_loss = 0 # reset loss so it doesn't build up in the tracking
         confusion_matrix = torch.zeros(len(training_data.dataset.labels_unique), len(training_data.dataset.labels_unique))
@@ -96,7 +96,7 @@ def train(rnn, training_data:torch.utils.data.Subset, validating_data:torch.util
         learning_rates.append(learning_rate)
 
         # check testing loss AND full test and add to list
-        test_metrics[0].append(find_loss(rnn, criterion, testing_data, batches))
+        test_metrics[0].append(find_loss(rnn, criterion, testing_data, get_batches_from_dataset(testing_data, batch_size, 1.))) # was using the batches from training, not testing
         temp_test_metrics = test(rnn, testing_data, show_graph=False)
         for i in range(1, len(test_metrics)):
             test_metrics[i].append(temp_test_metrics[i-1])
@@ -111,9 +111,9 @@ def train(rnn, training_data:torch.utils.data.Subset, validating_data:torch.util
         # get testing metrics
         if graph_total > 0:
             confusion_matrix /= graph_total
-        percent_correct = float(confusion_matrix[0][0]+confusion_matrix[1][1])*100
-        precision = float(confusion_matrix[1][1]/sum(confusion_matrix[1])) # AKA when you guess spam, how many were right
-        recall = float(confusion_matrix[1][1]/(confusion_matrix[0][1]+confusion_matrix[1][1])) # AKA of all the spam, how many did you guess right
+        percent_correct = float(confusion_matrix[0][0]+confusion_matrix[1][1])
+        precision = float(confusion_matrix[1][1]/(confusion_matrix[1][0]+confusion_matrix[1][1])) if (confusion_matrix[1][0]+confusion_matrix[1][1]) != 0 else 0 # AKA when you guess spam, how many were right
+        recall = float(confusion_matrix[1][1]/(confusion_matrix[0][1]+confusion_matrix[1][1])) if (confusion_matrix[0][1]+confusion_matrix[1][1]) != 0 else 0 # AKA of all the spam, how many did you guess right
         f1_score = 2*precision*recall/(precision+recall) if precision+recall!=0 else 0
         train_metrics[1].append(percent_correct)
         train_metrics[2].append(precision)
@@ -122,7 +122,7 @@ def train(rnn, training_data:torch.utils.data.Subset, validating_data:torch.util
 
         # print training metrics and loss
         print(f'\nTRAINING METRICS:\n{confusion_matrix}')
-        print(f'{percent_correct}% correct')
+        print(f'{percent_correct*100}% correct')
         print(f'precision: {precision}')
         print(f'recall: {recall}')
         print(f'f1 score: {f1_score}')
@@ -230,15 +230,15 @@ def test(rnn, testing_data:torch.utils.data.Subset, show_graph:bool = True, thre
     graph_total = confusion_matrix.sum()
     if graph_total > 0:
         confusion_matrix /= graph_total
-    percent_correct = float(confusion_matrix[0][0]+confusion_matrix[1][1])*100.
-    precision = float(confusion_matrix[1][1]/sum(confusion_matrix[1])) if sum(confusion_matrix[1]) != 0 else 0 # AKA when you guess spam, how many were right
+    percent_correct = float(confusion_matrix[0][0]+confusion_matrix[1][1])
+    precision = float(confusion_matrix[1][1]/(confusion_matrix[1][0]+confusion_matrix[1][1])) if (confusion_matrix[1][0]+confusion_matrix[1][1]) != 0 else 0 # AKA when you guess spam, how many were right
     recall = float(confusion_matrix[1][1]/(confusion_matrix[0][1]+confusion_matrix[1][1])) if (confusion_matrix[0][1]+confusion_matrix[1][1]) != 0 else 0 # AKA of all the spam, how many did you guess right
     f1_score = 2*precision*recall/(precision+recall) if precision+recall!=0 else 0
 
     if print_metrics:
         print(f'\nTESTING METRICS:')
         print(confusion_matrix)
-        print(f'{percent_correct}% correct')
+        print(f'{percent_correct*100}% correct')
         print(f'precision: {precision}')
         print(f'recall: {recall}')
         print(f'f1 score: {f1_score}')
@@ -283,39 +283,45 @@ def main():
     train_model:bool = True
     fine_adjustment:bool = False # make big steps OR fine adjustments
 
-    do_tuning:bool = True
+    do_tuning:bool = False
     
-    test_model:bool = True
+    test_model:bool = False
 
     # train from scratch or load a previous pretrained model
     if from_scratch:
-        rnn = MyRNN_Mini_Boi(len(preprocess.allowed_char), 128, len(all_data.labels_unique))
+        print('Training from scratch')
+        # rnn = MyRNN(len(preprocess.allowed_char), 512, len(all_data.labels_unique))
+        # rnn = MyRNN_4x_Linear_LeakyReLU(len(preprocess.allowed_char), 750, len(all_data.labels_unique))
+        rnn = MyRNN_Mini_Boi(len(preprocess.allowed_char), 300, len(all_data.labels_unique))
     else:
+        print('Training preexisting model')
         rnn = torch.load('./my_model', weights_only = False)
 
     rnn.to(device)
     print(rnn)
 
-    criterion = nn.NLLLoss(weight = torch.tensor([1., 5.]))
-    ham_percent = 0.15
+    criterion = nn.NLLLoss(weight = torch.tensor([0.05, 0.95]))
+    ham_percent = 0.125
 
     if train_model:
         # if making final adjustments to a model, use the custom dynamic lr param
         if fine_adjustment:
             num_epoch = 20
             target_loss = 0.
+            learning_rate = 0.001
             num_batches = 8
             low_bound = 0.001*2**-4
             num_steps = 6
             epoch_per_dynamic_lr = 1
             target_progress_per_epoch = 1.0 # forces dynamic lr each epoch, regardless of improvement
             
-            train(rnn, train_set, validation_set, test_set, ham_percent, num_epoch=num_epoch, target_loss=target_loss,
+            train(rnn, train_set, validation_set, test_set, ham_percent, num_epoch=num_epoch, target_loss=target_loss, learning_rate=learning_rate,
                   criterion=criterion, epoch_per_dynamic_lr=epoch_per_dynamic_lr, target_progress_per_epoch=target_progress_per_epoch, 
                   num_batches=num_batches, low_bound=low_bound, num_steps=num_steps, print_outlier_batches=False)
         # if making big steps, use the defaults
         else:
-            train(rnn, train_set, validation_set, test_set, ham_percent, criterion=criterion)
+            # if continuing training, use the last learning rate for the previous run
+            train(rnn, train_set, validation_set, test_set, ham_percent, learning_rate=0.064, criterion=criterion)
 
     if do_tuning: best_threshold = threshold_tuner(rnn, validation_set, lower_bound=0.1, upper_bound=0.9, 
                                                    num_steps=17, ham_percent=1)

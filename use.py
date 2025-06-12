@@ -25,7 +25,7 @@ def main():
     labels_unique = ['ham', 'spam']
 
     # load the trained model
-    rnn = torch.load('./my_model_512_3x_linear_leakyReLU', weights_only = False)
+    rnn = torch.load('./my_model', weights_only = False)
     rnn.to(device)
     print(rnn)
 

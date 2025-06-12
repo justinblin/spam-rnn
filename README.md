@@ -1,20 +1,28 @@
 # To Do
 - Retrain RNN to make better
     - ~~Post-training threshold tuning~~
+    - ~~Dynamic LR sometimes jumps around, causing erratic learning~~
+        - ~~Create lr momentum (maybe increase)~~
     - Figure out what's going wrong with testing f1
         - ~~Check abnormal batches~~
-        - Check training f1
-            - Test f1 much greater than train f1, overfitting?
-                - ~~Make model simpler~~
-                - ~~Add dropout layer~~
-                - ~~Add weight decay in optimizer~~
-                - Use more weight decay instead of dropout bcs it might be increasing precision at the cost of recall
-            - Train precision much greater than train recall
-                - Try oversampling spam? core oversampling technique
-- Check out Long Short Term Memory (LSTM)/GRU/transformers for a future project
-    - Don't really wanna switch up the model structure for this one now
+        - ~~Check training f1~~
+        - ~~Test f1 much greater than train f1, overfitting?~~
+            - ~~Make model simpler~~
+                - Re-add complexity (include dropout) so it converges lower without overfitting
+            - ~~Add dropout layer~~
+            - ~~Add weight decay in optimizer~~
+        - Train precision much greater than train recall
+            - Try oversampling spam?
+                - Core oversampling technique
+            - Could it have to do with the imbalance weight and RUS?
+                - Try testing only imbalance weight, only RUS
+                    - Doesn't seem to be imbalanced weights or dropout, could have been there before and simply didn't see it?
+                         - Try seeing previous models
 
-- Allow bot to pm mods or kick spammers  
+- Allow bot to pm mods or kick spammers 
+- Check out Long Short Term Memory (LSTM)/GRU/transformers for a future project
+    - Don't really wanna switch up the model structure for this one now 
+- Look at a project with a pretrained model pipeline for practical applications? (not training from scratch)
 
 <br>
 
