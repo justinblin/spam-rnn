@@ -1,6 +1,9 @@
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
+import torch.nn.init as init
+
+import math
 
 # CREATE NN
 class MyRNN_Mini_Boi(nn.Module):
@@ -11,50 +14,65 @@ class MyRNN_Mini_Boi(nn.Module):
         self.softmax = nn.Softmax(dim = 1)
         self.log_softmax = nn.LogSoftmax(dim = 1)
 
-        self.sequence = nn.Sequential(
+        self.sequence = nn.Sequential( # 0.12 - 31.6, 0.13 - 28.6, 0.14 - 25.7, 0.15 - 23.1,
             nn.Linear(hidden_size, hidden_size),
+            nn.LayerNorm(hidden_size),
             nn.LeakyReLU(),
             nn.Dropout(0.15),
             nn.Linear(hidden_size, hidden_size),
+            nn.LayerNorm(hidden_size),
             nn.LeakyReLU(),
             nn.Dropout(0.15),
             nn.Linear(hidden_size, hidden_size),
+            nn.LayerNorm(hidden_size),
             nn.LeakyReLU(),
             nn.Dropout(0.15),
             nn.Linear(hidden_size, hidden_size),
+            nn.LayerNorm(hidden_size),
             nn.LeakyReLU(),
             nn.Dropout(0.15),
             nn.Linear(hidden_size, hidden_size),
+            nn.LayerNorm(hidden_size),
             nn.LeakyReLU(),
             nn.Dropout(0.15),
             nn.Linear(hidden_size, hidden_size),
+            nn.LayerNorm(hidden_size),
             nn.LeakyReLU(),
             nn.Dropout(0.15),
             nn.Linear(hidden_size, hidden_size),
+            nn.LayerNorm(hidden_size),
             nn.LeakyReLU(),
             nn.Dropout(0.15),
             nn.Linear(hidden_size, hidden_size),
+            nn.LayerNorm(hidden_size),
             nn.LeakyReLU(),
             nn.Dropout(0.15),
             nn.Linear(hidden_size, hidden_size),
+            nn.LayerNorm(hidden_size),
             nn.LeakyReLU(),
             nn.Dropout(0.15),
-            nn.Linear(hidden_size, output_size),
-            nn.LeakyReLU(),
-            nn.Dropout(0.15)
+            nn.Linear(hidden_size, output_size)
         )
 
+        # add orthogonal initialization for linear layers
+        for layer in self.sequence:
+            if isinstance(layer, nn.Linear):
+                init.orthogonal_(layer.weight, gain=math.sqrt(2))
+                init.zeros_(layer.bias)
+
     def forward(self, line_tensor:torch.Tensor, show = False) -> torch.Tensor:
-        if show: print('forwar0.15x linear/dropout/leaky ReLU')
+        if show: print('forward Mini Boi')
         rnn_out, hidden = self.rnn(line_tensor) # input to hidden layer
         output = self.sequence(hidden[0]) # does all the hidden layers
 
         if show:
             print(f'raw output: {output}')
             print(f'softmax output: {self.softmax(output)}')
-        output = self.log_softmax(output) # does softmax and then ln so NLLLoss doesn't need it's own log (AKA faster)
+        # output = self.log_softmax(output) # does softmax and then ln so NLLLoss doesn't need it's own log (AKA faster)
             # softmax normalizes values 0-1 and sum to 1
-        if show: print(f'log softmax output: {output}')
+        # if show: print(f'log softmax output: {output}')
+
+        # use the raw output since switching to CrossEntropyLoss from NLLLoss, it already has an internal log softmax
 
         return output
 

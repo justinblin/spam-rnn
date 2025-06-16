@@ -6,18 +6,25 @@
     - Figure out what's going wrong with testing f1
         - ~~Check abnormal batches~~
         - ~~Check training f1~~
-        - ~~Test f1 much greater than train f1, overfitting?~~
+        - Test f1 much greater than train f1, overfitting?
             - ~~Make model simpler~~
-                - Re-add complexity (include dropout) so it converges lower without overfitting
+                - ~~Re-add complexity (include dropout) so it converges lower without overfitting~~
             - ~~Add dropout layer~~
             - ~~Add weight decay in optimizer~~
+            - Increase label smoothing
+        - Randomly 0's out
+            - ~~Custom orthogonal initialization for weights~~
+            - ~~Nesterov momentum~~
+            - Criterion label smoothing
+                - ~~May need to switch to CrossEntropyLoss~~
         - Train precision much greater than train recall
-            - Try oversampling spam?
-                - Core oversampling technique
+            - Look to see if old models were the same
+            - ~~Try oversampling spam?~~
             - Could it have to do with the imbalance weight and RUS?
                 - Try testing only imbalance weight, only RUS
                     - Doesn't seem to be imbalanced weights or dropout, could have been there before and simply didn't see it?
                          - Try seeing previous models
+            - Maybe from NLLLoss? Seemed to go away when switched to CrossEntropyLoss
 
 - Allow bot to pm mods or kick spammers 
 - Check out Long Short Term Memory (LSTM)/GRU/transformers for a future project

@@ -17,16 +17,16 @@ from learning_rate_finder import find_best_lr, find_loss
 
 # train neural network
 def train(rnn, training_data:torch.utils.data.Subset, validating_data:torch.utils.data.Subset, testing_data:torch.utils.data.Subset, 
-          ham_percent:float, num_epoch:int = 20, batch_size:int = 64, target_loss:float = 0.08, learning_rate:float = 0.064, 
-          criterion = nn.NLLLoss(), show_graph:bool = True, epoch_per_dynamic_lr:int = 2, target_progress_per_epoch:float=0.03, 
-          num_batches:int = 8, low_bound:float = 0.001, num_steps:int = 9, print_outlier_batches=False) -> tuple[list[float]]:
+          ham_percent:float, spam_extra:float, num_epoch:int = 20, batch_size:int = 64, target_loss:float = 0.08, learning_rate:float = 0.064, 
+          criterion = nn.CrossEntropyLoss(), show_graph:bool = True, epoch_per_dynamic_lr:int = 2, target_progress_per_epoch:float=0.03, 
+          num_batches:int = 8, low_bound:float = 0.001, num_steps:int = 8, print_outlier_batches=False) -> tuple[list[float]]:
     # track loss over time
     train_metrics:tuple[list[float]] = ([],[],[],[],[]) # tuple of lists for loss, accuracy, precision, recall, and f1
     test_metrics:tuple[list[float]] = ([],[],[],[],[])
     learning_rates = []
     abnormal_batches:list[list[int]] = []
 
-    print(f'\nStart training on {len(training_data)} examples\n')
+    print(f'\nStart training on {len(training_data)} examples\n{criterion} with {criterion.weight} class weights and {criterion.label_smoothing} label smoothing\n{ham_percent} ham RUS and {spam_extra} spam ROS\n')
 
     # go thru each epoch
     for epoch_index in range(num_epoch):
@@ -38,10 +38,10 @@ def train(rnn, training_data:torch.utils.data.Subset, validating_data:torch.util
             # exceptions for first and second activations since plateau detection needs at least 2 points
             if epoch_index == 0 or epoch_index == epoch_per_dynamic_lr or \
             train_metrics[0][-1] > train_metrics[0][-1-epoch_per_dynamic_lr]*(1 - target_progress_per_epoch*epoch_per_dynamic_lr):
-                learning_rate = find_best_lr(rnn, criterion, validating_data, ham_percent, learning_rate, batch_size=batch_size, 
+                learning_rate = find_best_lr(rnn, criterion, validating_data, learning_rate, batch_size=batch_size, 
                                              num_batches=num_batches, low_bound=low_bound, num_steps=num_steps)
                 
-        optimizer = torch.optim.SGD(rnn.parameters(), lr = learning_rate, momentum = 0.5, weight_decay=0.05) # stochastic gradient descent
+        optimizer = torch.optim.SGD(rnn.parameters(), lr = learning_rate, momentum = 0.5, weight_decay=0.01, nesterov=True) # stochastic gradient descent
             # momentum uses previous steps in the current step, faster training by reducing oscillation
                 
         print(f'Start epoch {epoch_index}, learning rate: {learning_rate}')
@@ -49,7 +49,7 @@ def train(rnn, training_data:torch.utils.data.Subset, validating_data:torch.util
         current_loss = 0 # reset loss so it doesn't build up in the tracking
         confusion_matrix = torch.zeros(len(training_data.dataset.labels_unique), len(training_data.dataset.labels_unique))
 
-        batches = get_batches_from_dataset(training_data, batch_size, ham_percent) # DO NOT use the same batches for dynamic lr as training
+        batches = get_batches_from_dataset(training_data, batch_size, ham_percent, spam_extra) # DO NOT use the same batches for dynamic lr as training
 
         abnormal_batches.append([])
 
@@ -96,7 +96,7 @@ def train(rnn, training_data:torch.utils.data.Subset, validating_data:torch.util
         learning_rates.append(learning_rate)
 
         # check testing loss AND full test and add to list
-        test_metrics[0].append(find_loss(rnn, criterion, testing_data, get_batches_from_dataset(testing_data, batch_size, 1.))) # was using the batches from training, not testing
+        test_metrics[0].append(find_loss(rnn, criterion, testing_data, get_batches_from_dataset(testing_data, batch_size))) # was using the batches from training, not testing
         temp_test_metrics = test(rnn, testing_data, show_graph=False)
         for i in range(1, len(test_metrics)):
             test_metrics[i].append(temp_test_metrics[i-1])
@@ -168,7 +168,7 @@ def train(rnn, training_data:torch.utils.data.Subset, validating_data:torch.util
 
 # TUNE THE THRESHOLD FOR SPAM
 def threshold_tuner(rnn, validation_data:torch.utils.data.Subset, lower_bound:float, 
-                    upper_bound:float, num_steps:int, ham_percent:float) -> float:
+                    upper_bound:float, num_steps:int) -> float:
     """
     lower_bound and upper_bound are both INCLUSIVE
     """
@@ -177,7 +177,7 @@ def threshold_tuner(rnn, validation_data:torch.utils.data.Subset, lower_bound:fl
     best_f1 = 0
     best_threshold = 0
 
-    indices_in_all_data = get_batches_from_dataset(validation_data, len(validation_data), ham_percent, num_batches=1)[0]
+    indices_in_all_data = get_batches_from_dataset(validation_data, len(validation_data), num_batches=1)[0]
 
     cur_threshold = lower_bound
     while cur_threshold <= upper_bound:
@@ -204,7 +204,7 @@ def test(rnn, testing_data:torch.utils.data.Subset, show_graph:bool = True, thre
     """
     # turn testing_data into a list of indices in all_data to allow RUS to work
     if len(indices_in_all_data) == 0:
-        indices_in_all_data = get_batches_from_dataset(testing_data, len(testing_data), 1., num_batches=1)[0]
+        indices_in_all_data = get_batches_from_dataset(testing_data, len(testing_data), num_batches=1)[0]
 
     classes = testing_data.dataset.labels_unique
 
@@ -283,9 +283,9 @@ def main():
     train_model:bool = True
     fine_adjustment:bool = False # make big steps OR fine adjustments
 
-    do_tuning:bool = False
+    do_tuning:bool = True
     
-    test_model:bool = False
+    test_model:bool = True
 
     # train from scratch or load a previous pretrained model
     if from_scratch:
@@ -300,8 +300,9 @@ def main():
     rnn.to(device)
     print(rnn)
 
-    criterion = nn.NLLLoss(weight = torch.tensor([0.05, 0.95]))
-    ham_percent = 0.125
+    criterion = nn.CrossEntropyLoss(weight=torch.tensor([0.45, 0.55]), label_smoothing=0.2)
+    ham_percent = 0.5
+    spam_extra = 0.5
 
     if train_model:
         # if making final adjustments to a model, use the custom dynamic lr param
@@ -315,22 +316,20 @@ def main():
             epoch_per_dynamic_lr = 1
             target_progress_per_epoch = 1.0 # forces dynamic lr each epoch, regardless of improvement
             
-            train(rnn, train_set, validation_set, test_set, ham_percent, num_epoch=num_epoch, target_loss=target_loss, learning_rate=learning_rate,
+            train(rnn, train_set, validation_set, test_set, ham_percent, spam_extra, num_epoch=num_epoch, target_loss=target_loss, learning_rate=learning_rate,
                   criterion=criterion, epoch_per_dynamic_lr=epoch_per_dynamic_lr, target_progress_per_epoch=target_progress_per_epoch, 
                   num_batches=num_batches, low_bound=low_bound, num_steps=num_steps, print_outlier_batches=False)
         # if making big steps, use the defaults
         else:
             # if continuing training, use the last learning rate for the previous run
-            train(rnn, train_set, validation_set, test_set, ham_percent, learning_rate=0.064, criterion=criterion)
+            train(rnn, train_set, validation_set, test_set, ham_percent, spam_extra, num_epoch=20, learning_rate=0.064, criterion=criterion)
 
     if do_tuning: best_threshold = threshold_tuner(rnn, validation_set, lower_bound=0.1, upper_bound=0.9, 
-                                                   num_steps=17, ham_percent=1)
-    else: best_threshold = 0.5
+                                                   num_steps=17)
 
     if test_model:
-        indices_in_all_data = get_batches_from_dataset(test_set, len(test_set), 1., num_batches=1)[0]
-        test(rnn, test_set, show_graph=False, threshold=best_threshold, indices_in_all_data=indices_in_all_data)
-        test(rnn, test_set, show_graph=False, threshold=0.5, indices_in_all_data=indices_in_all_data)
+        if do_tuning: test(rnn, test_set, show_graph=False, threshold=best_threshold)
+        test(rnn, test_set, show_graph=False, threshold=0.5)
 
 if __name__ == "__main__":
     main()

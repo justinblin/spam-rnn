@@ -48,7 +48,7 @@ class MyDataset(Dataset):
     def __getitem__(self, index:int) -> tuple[list[torch.Tensor], list[torch.Tensor], list[str], list[str]]:
         return self.label_list_tensors[index], self.data_list_tensors[index], self.label_list[index], self.data_list[index]
     
-def get_batches_from_dataset(subdata:torch.utils.data.Subset, batch_size:int, ham_percent:float, num_batches:int = None) -> list[list[int]]:
+def get_batches_from_dataset(subdata:torch.utils.data.Subset, batch_size:int, ham_percent:float = 1.0, spam_extra:float = 0.0, num_batches:int = None) -> list[list[int]]:
     """
     If num_batches is used, batch_size will be ignored
     """
@@ -60,12 +60,16 @@ def get_batches_from_dataset(subdata:torch.utils.data.Subset, batch_size:int, ha
 
     subdata_indices = subdata.indices # have to manually recreate what the training dataset's lists WOULD look like since random_split makes Subsets instead of new Datasets
     subdata_spam_index_list = list(set(subdata.dataset.spam_index_list) & set(subdata_indices))
+    print(f'pre-ROS/RUS: {len(subdata_spam_index_list)} spam', end=', ')
+    random.shuffle(subdata_spam_index_list)
+    subdata_spam_index_list += subdata_spam_index_list[:round(len(subdata_spam_index_list)*spam_extra)]
     
     subdata_ham_index_list = list(set(subdata.dataset.ham_index_list) & set(subdata_indices))
+    print(f'{len(subdata_ham_index_list)} ham')
     random.shuffle(subdata_ham_index_list)
     subdata_ham_index_list = subdata_ham_index_list[:round(len(subdata_ham_index_list)*ham_percent)]
     
-    print(f'{len(subdata_ham_index_list)} ham, {len(subdata_spam_index_list)} spam')
+    print(f'post-ROS/RUS: {len(subdata_spam_index_list)} spam, {len(subdata_ham_index_list)} ham')
     
     # split training data into batches
     batches = subdata_spam_index_list + subdata_ham_index_list
@@ -73,3 +77,24 @@ def get_batches_from_dataset(subdata:torch.utils.data.Subset, batch_size:int, ha
     batches = np.array_split(batches, num_batches if num_batches else round(len(batches) / batch_size)) # split list into batches of indices
 
     return batches
+
+def main():
+    print(torch.__version__)
+
+    # use GPU if possible
+    device = torch.device('cpu')
+    if torch.cuda.is_available():
+        device = torch.device('cuda')
+    torch.set_default_device(device)
+
+    print(device)
+
+    all_data = MyDataset([',', '\t', ','], 
+                         ['data/kaggle spam.csv', 'data/UC Irvine collection/SMSSpamCollection', # first 2 was 11147 total testcases
+                          'data/Mendeley Data collection/Dataset_5971.csv']) # total roughly 17000 testcases
+    train_set, validation_set, test_set = torch.utils.data.random_split(all_data, [1, 0, 0], generator=torch.Generator(device=device))
+
+    get_batches_from_dataset(train_set, len(train_set), 0.75, 1.0, 1)
+
+if __name__ == "__main__":
+    main()

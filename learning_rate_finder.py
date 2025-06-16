@@ -28,7 +28,7 @@ def find_loss(model, criterion, data_subset:torch.utils.data.Subset, batches:lis
 
     return current_loss
 
-def find_best_lr(model, criterion, validating_data:torch.utils.data.Subset, ham_percent:float, #batches:list[list[int]], 
+def find_best_lr(model, criterion, validating_data:torch.utils.data.Subset, 
                  prev_lr:float, batch_size:int = 64, num_batches:int = 8, 
                  low_bound = 0.001, num_steps = 10, step_size = 2, show = True) -> float:
     if show: print('\nSTART FINDING BEST LR\n')
@@ -38,7 +38,7 @@ def find_best_lr(model, criterion, validating_data:torch.utils.data.Subset, ham_
     best_lr:float = 0
     best_loss_improvement:float = -100
 
-    batches = get_batches_from_dataset(validating_data, batch_size, ham_percent)
+    batches = get_batches_from_dataset(validating_data, batch_size)
     if len(batches) > num_batches:
         batches = batches[:num_batches]
     if show: print(f'use {len(batches)} batches of {batch_size} elements')
@@ -52,7 +52,7 @@ def find_best_lr(model, criterion, validating_data:torch.utils.data.Subset, ham_
 
 
         # DO BACK PROPOGATION AND FIND THE LOSS AFTER
-        optimizer = torch.optim.SGD(model.parameters(), lr = curr_lr, momentum = 0.5, weight_decay=0.05)
+        optimizer = torch.optim.SGD(model.parameters(), lr = curr_lr, momentum = 0.5, weight_decay=0.01, nesterov=True)
 
         new_loss = 0 # average loss for all the batches
 
@@ -93,19 +93,12 @@ def find_best_lr(model, criterion, validating_data:torch.utils.data.Subset, ham_
 
         curr_lr *= step_size
 
-    final_lr = (best_lr + 2*prev_lr)/3
+    final_lr = (best_lr + prev_lr)/2
     print(f'Best LR before momentum: {best_lr}, after momentum: {final_lr}\n')
     return final_lr # sorta like a momentum for lr so it doesn't change as violently
 
 def main():
-    all_data = MyDataset([',', '\t'], ['data/kaggle spam.csv', 'data/UC Irvine collection/SMSSpamCollection']) # 11147 total testcases
-    train_set, validation_set, test_set = torch.utils.data.random_split(all_data, [.6, .2, .2])
-    
-
-    rnn = torch.load('./my_model', weights_only = False)
-    criterion = nn.NLLLoss(weight = torch.tensor([1., 5.]))
-
-    print(find_best_lr(rnn, criterion, validation_set, 0.15))
+    pass
 
 if __name__ == "__main__":
     main()
